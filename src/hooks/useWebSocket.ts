@@ -77,7 +77,7 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
       return {
         ...prev,
         unrealizedPnL: totalUnrealized,
-        pnlHistory: [...prev.pnlHistory, { time: now, value: newTotalPnL }].slice(-100),
+        pnlHistory: [...prev.pnlHistory, { time: now, value: newTotalPnL }],
       };
     });
   }, []);
@@ -100,10 +100,10 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
         realizedPnL: newRealizedPnL,
         totalFees: newTotalFees,
         totalVolume: prev.totalVolume + fillVolume,
-        recentFills: [fill, ...prev.recentFills].slice(0, 50),
+        recentFills: [fill, ...prev.recentFills],
         // Store per-fill volume (not cumulative) - chart computes cumulative
-        volumeHistory: [...prev.volumeHistory, { time: now, value: fillVolume }].slice(-100),
-        pnlHistory: [...prev.pnlHistory, { time: now, value: newTotalPnL }].slice(-100),
+        volumeHistory: [...prev.volumeHistory, { time: now, value: fillVolume }],
+        pnlHistory: [...prev.pnlHistory, { time: now, value: newTotalPnL }],
       };
     });
   }, []);
@@ -117,8 +117,7 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
         const newCount = prev.ordersCreated + 1;
         // Add to history and sort by time to handle out-of-order arrivals
         const newHistory = [...prev.ordersHistory, { time: orderTime, value: newCount }]
-          .sort((a, b) => a.time - b.time)
-          .slice(-100);
+          .sort((a, b) => a.time - b.time);
 
         // Recalculate cumulative values after sorting
         const recalculatedHistory = newHistory.map((point, index) => ({
@@ -158,8 +157,8 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
           ...prev,
           unrealizedPnL: newUnrealizedPnL,
           equity: newEquity,
-          equityHistory: [...prev.equityHistory, { time: now, value: newEquity }].slice(-100),
-          pnlHistory: [...prev.pnlHistory, { time: now, value: newTotalPnL }].slice(-100),
+          equityHistory: [...prev.equityHistory, { time: now, value: newEquity }],
+          pnlHistory: [...prev.pnlHistory, { time: now, value: newTotalPnL }],
         };
       });
     }
