@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import {
-  BarChart,
+  ComposedChart,
   Bar,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -27,11 +29,16 @@ export function VolumeChart({ data }: VolumeChartProps) {
     return `$${value.toFixed(0)}`;
   };
 
-  // Convert cumulative to incremental for bar chart
-  const incrementalData = data.map((point, index) => ({
-    time: point.time,
-    value: index === 0 ? point.value : point.value - data[index - 1].value,
-  }));
+  const chartData = useMemo(() => {
+    let cumulative = 0;
+    return data.map((item) => {
+      cumulative += item.value;
+      return {
+        ...item,
+        total: cumulative,
+      };
+    });
+  }, [data]);
 
   return (
     <div className="bg-paradex-card border border-paradex-border rounded-lg p-6">
@@ -43,7 +50,7 @@ export function VolumeChart({ data }: VolumeChartProps) {
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={incrementalData}>
+            <ComposedChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1e1e2e" />
               <XAxis
                 dataKey="time"
@@ -52,8 +59,16 @@ export function VolumeChart({ data }: VolumeChartProps) {
                 fontSize={12}
               />
               <YAxis
+                yAxisId="left"
                 tickFormatter={formatValue}
                 stroke="#6b7280"
+                fontSize={12}
+              />
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                tickFormatter={formatValue}
+                stroke="#10b981"
                 fontSize={12}
               />
               <Tooltip
@@ -63,10 +78,26 @@ export function VolumeChart({ data }: VolumeChartProps) {
                   borderRadius: '8px',
                 }}
                 labelFormatter={formatTime}
-                formatter={(value: number) => [formatValue(value), 'Volume']}
+                formatter={(value: number, name: string) => [
+                  formatValue(value),
+                  name === 'total' ? 'Total Volume' : 'Volume',
+                ]}
               />
-              <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} />
-            </BarChart>
+              <Bar
+                yAxisId="left"
+                dataKey="value"
+                fill="#6366f1"
+                radius={[2, 2, 0, 0]}
+              />
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="total"
+                stroke="#10b981"
+                strokeWidth={2}
+                dot={false}
+              />
+            </ComposedChart>
           </ResponsiveContainer>
         )}
       </div>

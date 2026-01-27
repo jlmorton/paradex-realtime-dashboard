@@ -4,6 +4,7 @@ import { ConnectWallet } from './components/ConnectWallet';
 import { MetricCard } from './components/MetricCard';
 import { PnLChart } from './components/PnLChart';
 import { VolumeChart } from './components/VolumeChart';
+import { OrdersChart } from './components/OrdersChart';
 import { FillsTable } from './components/FillsTable';
 
 function App() {
@@ -116,6 +117,7 @@ function App() {
               <PnLChart data={state.pnlHistory} />
               <VolumeChart data={state.volumeHistory} />
             </div>
+            <OrdersChart data={state.ordersHistory} />
 
             {/* Fills Table */}
             <FillsTable fills={state.recentFills} />

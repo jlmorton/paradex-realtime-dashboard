@@ -52,6 +52,7 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
     ordersCreated: 0,
     pnlHistory: [],
     volumeHistory: [],
+    ordersHistory: [],
     recentFills: [],
   });
 
@@ -94,10 +95,27 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
   const handleOrder = useCallback((order: Order) => {
     console.log('Processing order:', order.status, order);
     if (order.status === 'NEW' || order.status === 'OPEN') {
-      setState(prev => ({
-        ...prev,
-        ordersCreated: prev.ordersCreated + 1,
-      }));
+      // Use the order's actual creation timestamp
+      const orderTime = order.created_at;
+      setState(prev => {
+        const newCount = prev.ordersCreated + 1;
+        // Add to history and sort by time to handle out-of-order arrivals
+        const newHistory = [...prev.ordersHistory, { time: orderTime, value: newCount }]
+          .sort((a, b) => a.time - b.time)
+          .slice(-100);
+
+        // Recalculate cumulative values after sorting
+        const recalculatedHistory = newHistory.map((point, index) => ({
+          time: point.time,
+          value: index + 1,
+        }));
+
+        return {
+          ...prev,
+          ordersCreated: newCount,
+          ordersHistory: recalculatedHistory,
+        };
+      });
     }
   }, []);
 

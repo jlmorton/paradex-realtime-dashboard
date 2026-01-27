@@ -48,6 +48,7 @@ export interface DashboardState {
   ordersCreated: number;
   pnlHistory: { time: number; value: number }[];
   volumeHistory: { time: number; value: number }[];
+  ordersHistory: { time: number; value: number }[];
   recentFills: Fill[];
 }
 
