@@ -5,6 +5,7 @@ import { MetricCard } from './components/MetricCard';
 import { PnLChart } from './components/PnLChart';
 import { VolumeChart } from './components/VolumeChart';
 import { OrdersChart } from './components/OrdersChart';
+import { AccountValueChart } from './components/AccountValueChart';
 import { FillsTable } from './components/FillsTable';
 
 function App() {
@@ -40,7 +41,7 @@ function App() {
     return formatCurrency(value);
   };
 
-  const totalPnL = state.realizedPnL + state.unrealizedPnL;
+  const totalPnL = state.realizedPnL - state.totalFees + state.unrealizedPnL;
   const pnlColor = totalPnL >= 0 ? 'text-paradex-green' : 'text-paradex-red';
 
   return (
@@ -78,15 +79,20 @@ function App() {
         ) : (
           <div className="space-y-6">
             {/* Metric Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <MetricCard
-                label="Total P&L"
+                label="Total P&L (incl. fees)"
                 value={formatCurrency(totalPnL)}
                 prefix="$"
                 colorClass={pnlColor}
               />
               <MetricCard
-                label="Volume"
+                label="Account Value"
+                value={formatCurrency(state.equity)}
+                prefix="$"
+              />
+              <MetricCard
+                label="Session Volume"
                 value={formatVolume(state.totalVolume)}
                 prefix="$"
               />
@@ -97,7 +103,7 @@ function App() {
             </div>
 
             {/* Realized/Unrealized P&L breakdown */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <MetricCard
                 label="Realized P&L"
                 value={formatCurrency(state.realizedPnL)}
@@ -110,14 +116,23 @@ function App() {
                 prefix="$"
                 colorClass={state.unrealizedPnL >= 0 ? 'text-paradex-green' : 'text-paradex-red'}
               />
+              <MetricCard
+                label="Total Fees Paid"
+                value={formatCurrency(state.totalFees)}
+                prefix="-$"
+                colorClass="text-paradex-red"
+              />
             </div>
 
             {/* Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <PnLChart data={state.pnlHistory} />
-              <VolumeChart data={state.volumeHistory} />
+              <AccountValueChart data={state.equityHistory} />
             </div>
-            <OrdersChart data={state.ordersHistory} />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <VolumeChart data={state.volumeHistory} />
+              <OrdersChart data={state.ordersHistory} />
+            </div>
 
             {/* Fills Table */}
             <FillsTable fills={state.recentFills} />

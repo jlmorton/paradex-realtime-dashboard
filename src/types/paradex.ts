@@ -44,11 +44,14 @@ export interface WebSocketMessage {
 export interface DashboardState {
   realizedPnL: number;
   unrealizedPnL: number;
+  totalFees: number;
   totalVolume: number;
   ordersCreated: number;
+  equity: number;
   pnlHistory: { time: number; value: number }[];
   volumeHistory: { time: number; value: number }[];
   ordersHistory: { time: number; value: number }[];
+  equityHistory: { time: number; value: number }[];
   recentFills: Fill[];
 }
 

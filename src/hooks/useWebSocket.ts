@@ -18,9 +18,10 @@ interface Position {
 }
 
 interface AccountData {
-  equity: string;
-  free_collateral: string;
-  unrealized_pnl: string;
+  equity?: string;
+  account_value?: string;
+  free_collateral?: string;
+  unrealized_pnl?: string;
 }
 
 interface BalanceEvent {
@@ -48,11 +49,14 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
   const [state, setState] = useState<DashboardState>({
     realizedPnL: 0,
     unrealizedPnL: 0,
+    totalFees: 0,
     totalVolume: 0,
     ordersCreated: 0,
+    equity: 0,
     pnlHistory: [],
     volumeHistory: [],
     ordersHistory: [],
+    equityHistory: [],
     recentFills: [],
   });
 
@@ -61,33 +65,45 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
 
   const updatePnLFromPositions = useCallback(() => {
     let totalUnrealized = 0;
-    let totalRealized = 0;
 
     positionsRef.current.forEach(pos => {
       totalUnrealized += parseFloat(pos.unrealized_pnl) || 0;
-      totalRealized += parseFloat(pos.realized_positional_pnl) || 0;
     });
 
     const now = Date.now();
-    setState(prev => ({
-      ...prev,
-      unrealizedPnL: totalUnrealized,
-      realizedPnL: totalRealized,
-      pnlHistory: [...prev.pnlHistory, { time: now, value: totalRealized + totalUnrealized }].slice(-100),
-    }));
+    setState(prev => {
+      // Total P&L = realized P&L - fees + unrealized P&L
+      const newTotalPnL = prev.realizedPnL - prev.totalFees + totalUnrealized;
+      return {
+        ...prev,
+        unrealizedPnL: totalUnrealized,
+        pnlHistory: [...prev.pnlHistory, { time: now, value: newTotalPnL }].slice(-100),
+      };
+    });
   }, []);
 
   const handleFill = useCallback((fill: Fill) => {
     console.log('Processing fill:', fill);
     setState(prev => {
       const fillVolume = parseFloat(fill.price) * parseFloat(fill.size);
+      const fillRealizedPnL = parseFloat(fill.realized_pnl) || 0;
+      const fillFee = parseFloat(fill.fee) || 0;
       const now = Date.now();
+
+      const newRealizedPnL = prev.realizedPnL + fillRealizedPnL;
+      const newTotalFees = prev.totalFees + fillFee;
+      // Total P&L = realized P&L - fees + unrealized P&L
+      const newTotalPnL = newRealizedPnL - newTotalFees + prev.unrealizedPnL;
 
       return {
         ...prev,
+        realizedPnL: newRealizedPnL,
+        totalFees: newTotalFees,
         totalVolume: prev.totalVolume + fillVolume,
         recentFills: [fill, ...prev.recentFills].slice(0, 50),
-        volumeHistory: [...prev.volumeHistory, { time: now, value: prev.totalVolume + fillVolume }].slice(-100),
+        // Store per-fill volume (not cumulative) - chart computes cumulative
+        volumeHistory: [...prev.volumeHistory, { time: now, value: fillVolume }].slice(-100),
+        pnlHistory: [...prev.pnlHistory, { time: now, value: newTotalPnL }].slice(-100),
       };
     });
   }, []);
@@ -126,27 +142,33 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
   }, [updatePnLFromPositions]);
 
   const handleAccount = useCallback((account: AccountData) => {
-    console.log('Processing account:', account);
-    setState(prev => ({
-      ...prev,
-      unrealizedPnL: parseFloat(account.unrealized_pnl) || 0,
-    }));
+    console.log('Processing account (raw):', JSON.stringify(account));
+    const now = Date.now();
+    // Try equity first, then account_value as fallback
+    const newEquity = parseFloat(account.equity ?? '') || parseFloat(account.account_value ?? '') || 0;
+    const newUnrealizedPnL = parseFloat(account.unrealized_pnl ?? '') || 0;
+
+    console.log('Parsed account values - equity:', newEquity, 'unrealizedPnL:', newUnrealizedPnL);
+
+    if (newEquity > 0) {
+      setState(prev => {
+        // Total P&L = realized P&L - fees + unrealized P&L
+        const newTotalPnL = prev.realizedPnL - prev.totalFees + newUnrealizedPnL;
+        return {
+          ...prev,
+          unrealizedPnL: newUnrealizedPnL,
+          equity: newEquity,
+          equityHistory: [...prev.equityHistory, { time: now, value: newEquity }].slice(-100),
+          pnlHistory: [...prev.pnlHistory, { time: now, value: newTotalPnL }].slice(-100),
+        };
+      });
+    }
   }, []);
 
   const handleBalanceEvent = useCallback((balance: BalanceEvent) => {
     console.log('Processing balance event:', balance);
-    const before = parseFloat(balance.settlement_asset_balance_before) || 0;
-    const after = parseFloat(balance.settlement_asset_balance_after) || 0;
-    const change = after - before;
-
-    if (balance.event_type === 'settlement' && change !== 0) {
-      const now = Date.now();
-      setState(prev => ({
-        ...prev,
-        realizedPnL: prev.realizedPnL + change,
-        pnlHistory: [...prev.pnlHistory, { time: now, value: prev.realizedPnL + change + prev.unrealizedPnL }].slice(-100),
-      }));
-    }
+    // Balance events are informational - realized P&L is tracked from fills
+    // This handler is kept for logging/debugging purposes
   }, []);
 
   const processSubscriptionData = useCallback((channel: string, data: unknown) => {
@@ -262,7 +284,11 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
 
         // Handle subscription confirmations (id: 1-5)
         if (message.id && message.result) {
-          console.log('Subscription confirmed:', message.result);
+          console.log('Subscription confirmed:', message.id, message.result);
+          // id: 1 is the account subscription - result contains initial account data
+          if (message.id === 1 && typeof message.result === 'object') {
+            processSubscriptionData('account', message.result);
+          }
           return;
         }
 
