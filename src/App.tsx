@@ -1,6 +1,7 @@
 import { Analytics } from '@vercel/analytics/react';
 import { useParadexClient } from './hooks/useParadexClient';
 import { useWebSocket } from './hooks/useWebSocket';
+import { useDemoSimulation } from './hooks/useDemoSimulation';
 import { ConnectWallet } from './components/ConnectWallet';
 import { MetricCard } from './components/MetricCard';
 import { PnLChart } from './components/PnLChart';
@@ -11,7 +12,12 @@ import { PositionsTable } from './components/PositionsTable';
 import { FillsTable } from './components/FillsTable';
 import { OrderTiers } from './components/OrderTiers';
 import { MarketStatsTable } from './components/MarketStatsTable';
-import { sampleDashboardState } from './data/sampleData';
+
+const CheckIcon = () => (
+  <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+  </svg>
+);
 
 function App() {
   const {
@@ -29,9 +35,12 @@ function App() {
     jwtToken,
   });
 
-  // Use sample data when not connected, live data when connected
+  // Live demo simulation for when not connected
+  const { state: demoState } = useDemoSimulation();
+
+  // Use demo data when not connected, live data when connected
   const isDemo = !address;
-  const state = isDemo ? sampleDashboardState : liveState;
+  const state = isDemo ? demoState : liveState;
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString(undefined, {
@@ -86,7 +95,7 @@ function App() {
           <div className="mb-8">
             {/* Hero */}
             <div className="bg-gradient-to-r from-purple-900/30 to-pink-900/30 border border-purple-500/20 rounded-xl p-8 mb-6">
-              <div className="max-w-2xl">
+              <div className="max-w-3xl">
                 <h2 className="text-3xl font-bold text-white mb-4">
                   Real-Time Trading Bot Analytics
                 </h2>
@@ -95,30 +104,38 @@ function App() {
                   and order management. All data stays local in your browser — connect your wallet
                   to stream real-time updates directly from Paradex.
                 </p>
-                <div className="flex flex-wrap gap-4 text-sm text-gray-400">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-sm text-gray-300">
                   <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
+                    <CheckIcon />
                     Live P&L Tracking
                   </div>
                   <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
+                    <CheckIcon />
+                    Volume & Fee Analytics
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckIcon />
                     Order Tier Visualization
                   </div>
                   <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    Per-Market Analytics
+                    <CheckIcon />
+                    Per-Market Breakdown
                   </div>
                   <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    Privacy-First (No Backend)
+                    <CheckIcon />
+                    Position Monitoring
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckIcon />
+                    Real-Time Fill Feed
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckIcon />
+                    Session Persistence
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckIcon />
+                    Privacy-First Design
                   </div>
                 </div>
               </div>
@@ -130,7 +147,7 @@ function App() {
                 <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
               <span className="text-amber-200 text-sm">
-                <strong>Demo Mode:</strong> Viewing sample data. Connect your wallet to see your live trading activity.
+                <strong>Live Demo:</strong> Watching simulated trading activity. Connect your wallet to monitor your actual bot.
               </span>
             </div>
           </div>
@@ -216,7 +233,7 @@ function App() {
       {/* Footer */}
       <footer className="border-t border-paradex-border px-6 py-4 mt-auto">
         <div className="max-w-7xl mx-auto text-center text-gray-500 text-sm">
-          {isDemo ? 'Connect wallet to start tracking' : 'Data tracked since session start'}
+          {isDemo ? 'Connect wallet to start tracking your bot' : 'Data tracked since session start'}
         </div>
       </footer>
       <Analytics />
