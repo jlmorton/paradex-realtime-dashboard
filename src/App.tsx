@@ -2,6 +2,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { useParadexClient } from './hooks/useParadexClient';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useDemoSimulation } from './hooks/useDemoSimulation';
+import { useMarketConfig } from './hooks/useMarketConfig';
 import { ConnectWallet } from './components/ConnectWallet';
 import { MetricCard } from './components/MetricCard';
 import { PnLChart } from './components/PnLChart';
@@ -37,6 +38,9 @@ function App() {
 
   // Live demo simulation for when not connected
   const { state: demoState } = useDemoSimulation();
+
+  // Fetch market configurations for proper decimal formatting
+  const { marketConfigs } = useMarketConfig();
 
   // Use demo data when not connected, live data when connected
   const isDemo = !address;
@@ -207,6 +211,7 @@ function App() {
             openOrders={state.openOrders}
             lastOrderTimeByMarket={state.lastOrderTimeByMarket}
             lastFillTimeByMarket={state.lastFillTimeByMarket}
+            marketConfigs={marketConfigs}
           />
 
           {/* Charts */}
@@ -220,10 +225,10 @@ function App() {
           </div>
 
           {/* Fills Table */}
-          <FillsTable fills={state.recentFills} />
+          <FillsTable fills={state.recentFills} marketConfigs={marketConfigs} />
 
           {/* Open Orders by Market */}
-          <OrderTiers allOpenOrders={state.allOpenOrders} />
+          <OrderTiers allOpenOrders={state.allOpenOrders} marketConfigs={marketConfigs} />
 
           {/* Market Summary */}
           <MarketStatsTable marketStats={state.marketStats} />

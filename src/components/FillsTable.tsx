@@ -1,32 +1,34 @@
 import { memo, useState } from 'react';
-import type { Fill } from '../types/paradex';
+import type { Fill, MarketConfig } from '../types/paradex';
+import { formatPriceWithConfig, formatSizeWithConfig } from '../hooks/useMarketConfig';
 
 interface FillsTableProps {
   fills: Fill[];
+  marketConfigs: Map<string, MarketConfig>;
 }
 
 const DISPLAY_OPTIONS = [25, 50, 100, 250, 500, 1000];
 
-export const FillsTable = memo(function FillsTable({ fills }: FillsTableProps) {
+export const FillsTable = memo(function FillsTable({ fills, marketConfigs }: FillsTableProps) {
   const [displayLimit, setDisplayLimit] = useState(25);
 
   const formatTime = (timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString();
   };
 
-  const formatPrice = (price: string) => {
-    const num = parseFloat(price);
+  const formatPrice = (price: string, market: string) => {
+    return formatPriceWithConfig(price, market, marketConfigs);
+  };
+
+  const formatSize = (size: string, market: string) => {
+    return formatSizeWithConfig(size, market, marketConfigs);
+  };
+
+  const formatUsd = (value: string) => {
+    const num = parseFloat(value);
     return num.toLocaleString(undefined, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    });
-  };
-
-  const formatSize = (size: string) => {
-    const num = parseFloat(size);
-    return num.toLocaleString(undefined, {
-      minimumFractionDigits: 4,
-      maximumFractionDigits: 4,
     });
   };
 
@@ -111,10 +113,10 @@ export const FillsTable = memo(function FillsTable({ fills }: FillsTableProps) {
                     </span>
                   </td>
                   <td className="py-3 px-2 text-right text-white font-mono">
-                    {formatSize(fill.size)}
+                    {formatSize(fill.size, fill.market)}
                   </td>
                   <td className="py-3 px-2 text-right text-white font-mono">
-                    ${formatPrice(fill.price)}
+                    ${formatPrice(fill.price, fill.market)}
                   </td>
                   <td className="py-3 px-2 text-right text-white font-mono">
                     ${formatValue(fill.size, fill.price)}
@@ -127,7 +129,7 @@ export const FillsTable = memo(function FillsTable({ fills }: FillsTableProps) {
                           : 'text-paradex-red'
                       }
                     >
-                      ${formatPrice(fill.realized_pnl)}
+                      ${formatUsd(fill.realized_pnl)}
                     </span>
                   </td>
                 </tr>

@@ -1,29 +1,26 @@
 import { memo } from 'react';
-import type { Position, Order } from '../types/paradex';
+import type { Position, Order, MarketConfig } from '../types/paradex';
+import { formatPriceWithConfig, formatSizeWithConfig } from '../hooks/useMarketConfig';
 
 interface PositionsTableProps {
   positions: Position[];
   openOrders: Map<string, Order>;
   lastOrderTimeByMarket: Map<string, number>;
   lastFillTimeByMarket: Map<string, number>;
+  marketConfigs: Map<string, MarketConfig>;
 }
 
-export const PositionsTable = memo(function PositionsTable({ positions, openOrders, lastOrderTimeByMarket, lastFillTimeByMarket }: PositionsTableProps) {
-  const formatPrice = (value: string | undefined) => {
+export const PositionsTable = memo(function PositionsTable({ positions, openOrders, lastOrderTimeByMarket, lastFillTimeByMarket, marketConfigs }: PositionsTableProps) {
+  const formatPrice = (value: string | undefined, market: string) => {
     if (!value) return '-';
-    const num = parseFloat(value);
-    if (num >= 1000) {
-      return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-    return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+    return formatPriceWithConfig(value, market, marketConfigs);
   };
 
   const formatSize = (value: string | undefined, market: string) => {
     if (!value) return '-';
     const num = Math.abs(parseFloat(value));
-    // Extract base asset from market (e.g., "BTC-USD-PERP" -> "BTC")
     const baseAsset = market.split('-')[0];
-    return `${num.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 6 })} ${baseAsset}`;
+    return `${formatSizeWithConfig(num, market, marketConfigs)} ${baseAsset}`;
   };
 
   const formatValue = (size: string, price: string) => {
@@ -145,14 +142,14 @@ export const PositionsTable = memo(function PositionsTable({ positions, openOrde
                     {formatValue(position.size, position.average_entry_price)}
                   </td>
                   <td className="py-3 pr-4 text-white">
-                    ${formatPrice(position.average_entry_price)}
+                    ${formatPrice(position.average_entry_price, position.market)}
                   </td>
                   <td className="py-3 pr-4 w-32">
                     <div className="flex items-center justify-between h-5">
                       {exitOrder ? (
                         <>
                           <span className={exitOrder.side === 'BUY' ? 'text-paradex-green' : 'text-paradex-red'}>
-                            ${formatPrice(exitOrder.price)}
+                            ${formatPrice(exitOrder.price, position.market)}
                           </span>
                           <span className={`text-[10px] px-1 py-0.5 rounded font-medium ${
                             exitOrder.side === 'BUY'
@@ -169,7 +166,7 @@ export const PositionsTable = memo(function PositionsTable({ positions, openOrde
                   </td>
                   <td className="py-3 pr-4 text-white">
                     {position.liquidation_price && parseFloat(position.liquidation_price) > 0
-                      ? `$${formatPrice(position.liquidation_price)}`
+                      ? `$${formatPrice(position.liquidation_price, position.market)}`
                       : '-'}
                   </td>
                   <td className="py-3 pr-4">

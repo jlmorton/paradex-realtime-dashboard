@@ -103,3 +103,11 @@ export interface ParadexConfig {
   environment: 'prod' | 'testnet';
   applicationId?: string;
 }
+
+export interface MarketConfig {
+  symbol: string;
+  priceTickSize: number;
+  orderSizeIncrement: number;
+  priceDecimals: number;
+  sizeDecimals: number;
+}

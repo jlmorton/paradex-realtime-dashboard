@@ -1,8 +1,10 @@
-import { memo, useMemo, useState, useEffect, useRef } from 'react';
-import type { Order } from '../types/paradex';
+import { memo, useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import type { Order, MarketConfig } from '../types/paradex';
+import { formatPriceWithConfig, formatSizeWithConfig } from '../hooks/useMarketConfig';
 
 interface OrderTiersProps {
   allOpenOrders: Map<string, Order[]>;
+  marketConfigs: Map<string, MarketConfig>;
 }
 
 interface MarketOrderSummary {
@@ -16,7 +18,7 @@ interface MarketOrderSummary {
 const MARKET_TIMEOUT_MS = 60000; // 60 seconds before removing empty markets
 const MAX_TIERS_SHOWN = 5;
 
-export const OrderTiers = memo(function OrderTiers({ allOpenOrders }: OrderTiersProps) {
+export const OrderTiers = memo(function OrderTiers({ allOpenOrders, marketConfigs }: OrderTiersProps) {
   // Track when each market was last seen with orders
   const lastSeenRef = useRef<Map<string, number>>(new Map());
   const [, forceUpdate] = useState(0);
@@ -94,27 +96,7 @@ export const OrderTiers = memo(function OrderTiers({ allOpenOrders }: OrderTiers
     return summaries.sort((a, b) => a.market.localeCompare(b.market));
   }, [allOpenOrders]);
 
-  const formatPrice = (value: number) => {
-    if (value >= 1000) {
-      return value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-    }
-    if (value >= 1) {
-      return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-    return value.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
-  };
-
-  const formatSize = (value: number) => {
-    if (value >= 1) {
-      return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-    if (value >= 0.01) {
-      return value.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 });
-    }
-    return value.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
-  };
-
-  const renderOrderList = (orders: Order[], side: 'BUY' | 'SELL') => {
+  const renderOrderList = useCallback((orders: Order[], side: 'BUY' | 'SELL', market: string) => {
     if (orders.length === 0) return null;
 
     const visibleOrders = orders.slice(0, MAX_TIERS_SHOWN);
@@ -132,8 +114,8 @@ export const OrderTiers = memo(function OrderTiers({ allOpenOrders }: OrderTiers
             const size = parseFloat(order.remaining_size || order.size);
             return (
               <div key={order.id} className="flex justify-between text-[11px] leading-tight">
-                <span className="text-gray-400">${formatPrice(price)}</span>
-                <span className="text-gray-300 ml-2">{formatSize(size)}</span>
+                <span className="text-gray-400">${formatPriceWithConfig(price, market, marketConfigs)}</span>
+                <span className="text-gray-300 ml-2">{formatSizeWithConfig(size, market, marketConfigs)}</span>
               </div>
             );
           })}
@@ -145,7 +127,7 @@ export const OrderTiers = memo(function OrderTiers({ allOpenOrders }: OrderTiers
         </div>
       </div>
     );
-  };
+  }, [marketConfigs]);
 
   if (marketSummaries.length === 0) {
     return (
@@ -163,7 +145,7 @@ export const OrderTiers = memo(function OrderTiers({ allOpenOrders }: OrderTiers
         {marketSummaries.map((summary) => (
           <div
             key={summary.market}
-            className={`bg-paradex-dark border rounded-lg px-3 py-2 min-w-[160px] ${
+            className={`bg-paradex-dark border rounded-lg px-3 py-2 min-w-[160px] h-[220px] ${
               summary.hasOrders ? 'border-paradex-border' : 'border-paradex-border/50 opacity-60'
             }`}
           >
@@ -172,8 +154,8 @@ export const OrderTiers = memo(function OrderTiers({ allOpenOrders }: OrderTiers
               <div className="text-gray-500 text-xs">No orders</div>
             ) : (
               <div>
-                {renderOrderList(summary.sellOrders, 'SELL')}
-                {renderOrderList(summary.buyOrders, 'BUY')}
+                {renderOrderList(summary.sellOrders, 'SELL', summary.market)}
+                {renderOrderList(summary.buyOrders, 'BUY', summary.market)}
               </div>
             )}
           </div>
