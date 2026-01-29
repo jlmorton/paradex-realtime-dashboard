@@ -64,7 +64,7 @@ interface PendingUpdates {
   pnlPoints: { time: number; value: number }[];
   volumePoints: VolumeDataPoint[];
   equityPoints: { time: number; value: number }[];
-  orderPoints: { time: number; value: number }[];
+  orderPoints: { time: number; market: string }[];
   realizedPnLDelta: number;
   feesDelta: number;
   volumeDelta: number;
@@ -237,8 +237,6 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
         equityHistory: limitArray(prev.equityHistory, pending.equityPoints, MAX_HISTORY_POINTS),
         ordersHistory: pending.orderPoints.length > 0
           ? limitArray(prev.ordersHistory, pending.orderPoints, MAX_HISTORY_POINTS)
-              .sort((a, b) => a.time - b.time)
-              .map((point, index) => ({ time: point.time, value: index + 1 }))
           : prev.ordersHistory,
         positions: newPositions,
         openOrders: pending.ordersChanged ? new Map(openOrdersRef.current) : prev.openOrders,
@@ -346,7 +344,7 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
       // Only increment counts for actually new orders (not NEW->OPEN transitions)
       if (isNewOrder) {
         pending.newOrdersCount++;
-        pending.orderPoints.push({ time: order.created_at, value: 0 }); // Value recalculated on flush
+        pending.orderPoints.push({ time: order.created_at, market: order.market });
 
         // Update per-market order count
         const stats = marketStatsRef.current.get(order.market) || {

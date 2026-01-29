@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { DashboardState, Fill, Position, Order, MarketStats, VolumeDataPoint } from '../types/paradex';
+import type { DashboardState, Fill, Position, Order, MarketStats, VolumeDataPoint, OrderDataPoint } from '../types/paradex';
 
 // Market configurations
 const MARKETS = [
@@ -75,6 +75,7 @@ export function useDemoSimulation() {
       let newOrdersCreated = prev.ordersCreated;
       const newFills: Fill[] = [];
       const newVolumePoints: VolumeDataPoint[] = [];
+      const newOrderPoints: OrderDataPoint[] = [];
       const newPositions: Position[] = [];
       const newOpenOrders = new Map(prev.openOrders);
       const newAllOpenOrders = new Map<string, Order[]>();
@@ -144,6 +145,7 @@ export function useDemoSimulation() {
             newOrdersCreated++;
             stats.orderCount++;
             newLastOrderTimes.set(marketConfig.symbol, now);
+            newOrderPoints.push({ time: now, market: marketConfig.symbol });
           }
         }
 
@@ -339,9 +341,9 @@ export function useDemoSimulation() {
         ...newVolumePoints,
       ].slice(-maxHistory);
       const newOrdersHistory = [
-        ...prev.ordersHistory.slice(-maxHistory + 1),
-        { time: now, value: newOrdersCreated },
-      ];
+        ...prev.ordersHistory.slice(-maxHistory),
+        ...newOrderPoints,
+      ].slice(-maxHistory);
 
       return {
         ...prev,

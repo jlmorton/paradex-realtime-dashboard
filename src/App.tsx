@@ -14,6 +14,7 @@ import { FillsTable } from './components/FillsTable';
 import { OrderTiers } from './components/OrderTiers';
 import { MarketStatsTable } from './components/MarketStatsTable';
 import { FillsMetricCard } from './components/FillsMetricCard';
+import { OrdersMetricCard } from './components/OrdersMetricCard';
 
 const CheckIcon = () => (
   <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -178,10 +179,7 @@ function App() {
               value={formatVolume(state.totalVolume)}
               prefix="$"
             />
-            <MetricCard
-              label="Orders Created"
-              value={state.ordersCreated.toString()}
-            />
+            <OrdersMetricCard ordersCreated={state.ordersCreated} marketStats={state.marketStats} />
             <FillsMetricCard fills={state.recentFills} />
           </div>
 

@@ -69,6 +69,11 @@ export interface VolumeDataPoint {
   market: string;
 }
 
+export interface OrderDataPoint {
+  time: number;
+  market: string;
+}
+
 export interface MarketStats {
   market: string;
   realizedPnL: number;
@@ -88,7 +93,7 @@ export interface DashboardState {
   equity: number;
   pnlHistory: { time: number; value: number }[];
   volumeHistory: VolumeDataPoint[];
-  ordersHistory: { time: number; value: number }[];
+  ordersHistory: OrderDataPoint[];
   equityHistory: { time: number; value: number }[];
   recentFills: Fill[];
   positions: Position[];

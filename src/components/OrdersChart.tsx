@@ -1,31 +1,74 @@
 import { memo, useMemo } from 'react';
 import {
-  BarChart,
+  ComposedChart,
   Bar,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Legend,
 } from 'recharts';
+import type { OrderDataPoint } from '../types/paradex';
 
 interface OrdersChartProps {
-  data: { time: number; value: number }[];
+  data: OrderDataPoint[];
 }
 
-// Downsample data for better chart performance
-function downsample(data: { time: number; value: number }[], maxPoints: number) {
-  if (data.length <= maxPoints) return data;
-  const step = Math.ceil(data.length / maxPoints);
-  const result = [];
-  for (let i = 0; i < data.length; i += step) {
-    result.push(data[i]);
-  }
-  // Always include the last point
-  if (result[result.length - 1] !== data[data.length - 1]) {
-    result.push(data[data.length - 1]);
-  }
-  return result;
+// Market colors for stacked bars
+const MARKET_COLORS: Record<string, string> = {
+  BTC: '#f7931a',
+  ETH: '#627eea',
+  SOL: '#14f195',
+  ARB: '#28a0f0',
+};
+
+const getMarketColor = (market: string) => {
+  const base = market.split('-')[0];
+  return MARKET_COLORS[base] || '#6b7280';
+};
+
+interface AggregatedData {
+  data: Record<string, number>[];
+  markets: string[];
+}
+
+// Aggregate order points into time buckets
+function aggregateByTime(data: OrderDataPoint[], bucketMs: number = 5000): AggregatedData {
+  if (data.length === 0) return { data: [], markets: [] };
+
+  const buckets = new Map<number, Map<string, number>>();
+  const markets = new Set<string>();
+
+  data.forEach(point => {
+    const bucket = Math.floor(point.time / bucketMs) * bucketMs;
+    const baseMarket = point.market.split('-')[0];
+    markets.add(baseMarket);
+
+    if (!buckets.has(bucket)) {
+      buckets.set(bucket, new Map());
+    }
+    const marketCounts = buckets.get(bucket)!;
+    marketCounts.set(baseMarket, (marketCounts.get(baseMarket) || 0) + 1);
+  });
+
+  const sortedMarkets = Array.from(markets).sort();
+  const result = Array.from(buckets.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([time, marketCounts]) => {
+      const entry: Record<string, number> = { time };
+      let total = 0;
+      sortedMarkets.forEach(market => {
+        const count = marketCounts.get(market) || 0;
+        entry[market] = count;
+        total += count;
+      });
+      entry.total = total;
+      return entry;
+    });
+
+  return { data: result, markets: sortedMarkets };
 }
 
 export const OrdersChart = memo(function OrdersChart({ data }: OrdersChartProps) {
@@ -33,8 +76,9 @@ export const OrdersChart = memo(function OrdersChart({ data }: OrdersChartProps)
     return new Date(timestamp).toLocaleTimeString();
   };
 
-  // Downsample to max 200 points for smooth rendering
-  const chartData = useMemo(() => downsample(data, 200), [data]);
+  const { data: chartData, markets } = useMemo(() => {
+    return aggregateByTime(data, 3000);
+  }, [data]);
 
   return (
     <div className="bg-paradex-card border border-paradex-border rounded-lg p-6">
@@ -46,7 +90,7 @@ export const OrdersChart = memo(function OrdersChart({ data }: OrdersChartProps)
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData}>
+            <ComposedChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1e1e2e" />
               <XAxis
                 dataKey="time"
@@ -66,15 +110,31 @@ export const OrdersChart = memo(function OrdersChart({ data }: OrdersChartProps)
                   borderRadius: '8px',
                 }}
                 labelFormatter={formatTime}
-                formatter={(value: number) => [value, 'Orders']}
               />
-              <Bar
-                dataKey="value"
-                fill="#f59e0b"
-                radius={[2, 2, 0, 0]}
+              <Legend
+                wrapperStyle={{ paddingTop: '10px' }}
+                formatter={(value) => <span className="text-gray-400 text-xs">{value}</span>}
+              />
+              {markets.map((market: string) => (
+                <Bar
+                  key={market}
+                  dataKey={market}
+                  stackId="orders"
+                  fill={getMarketColor(market)}
+                  radius={[0, 0, 0, 0]}
+                  isAnimationActive={false}
+                />
+              ))}
+              <Line
+                type="monotone"
+                dataKey="total"
+                stroke="#ffffff"
+                strokeWidth={2}
+                dot={false}
                 isAnimationActive={false}
+                name="Total"
               />
-            </BarChart>
+            </ComposedChart>
           </ResponsiveContainer>
         )}
       </div>

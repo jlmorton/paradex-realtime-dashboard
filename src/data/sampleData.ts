@@ -237,7 +237,14 @@ export const sampleDashboardState: DashboardState = {
   equity: 12456.78,
   pnlHistory: generateTimeSeriesData(60, 250, 15),
   volumeHistory: generateVolumeData(),
-  ordersHistory: generateTimeSeriesData(60, 0, 0).map((p, i) => ({ time: p.time, value: Math.floor(i * 1.5) })),
+  ordersHistory: generateTimeSeriesData(60, 0, 0).flatMap((p, i) => {
+    const markets = ['BTC-USD-PERP', 'ETH-USD-PERP', 'SOL-USD-PERP'];
+    const count = Math.floor(i * 0.5) + 1;
+    return Array.from({ length: count }, (_, j) => ({
+      time: p.time + j * 100,
+      market: markets[j % markets.length]
+    }));
+  }),
   equityHistory: generateTimeSeriesData(60, 12400, 50),
   recentFills: sampleFills,
   positions: samplePositions,
