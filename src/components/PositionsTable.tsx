@@ -148,7 +148,7 @@ export const PositionsTable = memo(function PositionsTable({ positions, openOrde
                     ${formatPrice(position.average_entry_price)}
                   </td>
                   <td className="py-3 pr-4 w-32">
-                    <div className="flex items-center gap-1.5 h-5">
+                    <div className="flex items-center justify-between h-5">
                       {exitOrder ? (
                         <>
                           <span className={exitOrder.side === 'BUY' ? 'text-paradex-green' : 'text-paradex-red'}>
@@ -193,8 +193,11 @@ export const PositionsTable = memo(function PositionsTable({ positions, openOrde
           </tbody>
         </table>
       </div>
-      <div className="mt-3 pt-3 border-t border-paradex-border/50 text-[10px] text-gray-500">
-        <span className="text-paradex-green">BL</span> Buy Limit · <span className="text-paradex-red">SL</span> Sell Limit · <span className="text-paradex-green">BM</span> Buy Market · <span className="text-paradex-red">SM</span> Sell Market
+      <div className="mt-3 pt-3 border-t border-paradex-border/50 text-[10px] text-gray-500 flex items-center gap-3">
+        <span className="flex items-center gap-1"><span className="px-1 py-0.5 rounded font-medium bg-paradex-green/20 text-paradex-green">BL</span> Buy Limit</span>
+        <span className="flex items-center gap-1"><span className="px-1 py-0.5 rounded font-medium bg-paradex-red/20 text-paradex-red">SL</span> Sell Limit</span>
+        <span className="flex items-center gap-1"><span className="px-1 py-0.5 rounded font-medium bg-paradex-green/20 text-paradex-green">BM</span> Buy Market</span>
+        <span className="flex items-center gap-1"><span className="px-1 py-0.5 rounded font-medium bg-paradex-red/20 text-paradex-red">SM</span> Sell Market</span>
       </div>
     </div>
   );
