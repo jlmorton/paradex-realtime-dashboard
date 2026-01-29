@@ -15,7 +15,7 @@ interface CachedOrder {
   removedAt: number | null; // null means currently active, timestamp means when it was removed
 }
 
-const EXIT_ORDER_CACHE_MS = 1000; // 1 second grace period before removing
+const EXIT_ORDER_CACHE_MS = 1500; // 1.5 second grace period before removing
 
 export const PositionsTable = memo(function PositionsTable({ positions, openOrders, lastOrderTimeByMarket, lastFillTimeByMarket, marketConfigs }: PositionsTableProps) {
   // Cache for exit orders to prevent flashing during rapid cancel/create cycles
