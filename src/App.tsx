@@ -9,6 +9,7 @@ import { OrdersChart } from './components/OrdersChart';
 import { AccountValueChart } from './components/AccountValueChart';
 import { PositionsTable } from './components/PositionsTable';
 import { FillsTable } from './components/FillsTable';
+import { OrderTiers } from './components/OrderTiers';
 import { MarketStatsTable } from './components/MarketStatsTable';
 
 function App() {
@@ -147,6 +148,9 @@ function App() {
 
             {/* Fills Table */}
             <FillsTable fills={state.recentFills} />
+
+            {/* Open Orders by Market */}
+            <OrderTiers allOpenOrders={state.allOpenOrders} />
 
             {/* Market Summary */}
             <MarketStatsTable marketStats={state.marketStats} />

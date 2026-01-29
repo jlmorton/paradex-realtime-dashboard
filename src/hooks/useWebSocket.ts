@@ -73,6 +73,7 @@ interface PendingUpdates {
   unrealizedPnL: number | null;
   positionsChanged: boolean;
   ordersChanged: boolean;
+  allOrdersChanged: boolean;
   lastOrderTimes: Map<string, number>; // market -> timestamp
   lastPositionChangeTimes: Map<string, number>; // market -> timestamp
   marketStatsChanged: boolean;
@@ -93,6 +94,7 @@ function createEmptyPendingUpdates(): PendingUpdates {
     unrealizedPnL: null,
     positionsChanged: false,
     ordersChanged: false,
+    allOrdersChanged: false,
     lastOrderTimes: new Map(),
     lastPositionChangeTimes: new Map(),
     marketStatsChanged: false,
@@ -123,6 +125,7 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
     recentFills: [],
     positions: [],
     openOrders: new Map(),
+    allOpenOrders: new Map(),
     lastOrderTimeByMarket: new Map(),
     lastPositionChangeByMarket: new Map(),
     marketStats: new Map(),
@@ -132,6 +135,8 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
   const positionsRef = useRef<Map<string, WSPosition>>(new Map());
   // Track open orders by market for showing exit prices
   const openOrdersRef = useRef<Map<string, Order>>(new Map());
+  // Track all open orders by market (for tiers display)
+  const allOpenOrdersRef = useRef<Map<string, Map<string, Order>>>(new Map()); // market -> orderId -> Order
   // Track last order time per market
   const lastOrderTimeRef = useRef<Map<string, number>>(new Map());
   // Track last position change time per market
@@ -169,6 +174,7 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
       pending.unrealizedPnL === null &&
       !pending.positionsChanged &&
       !pending.ordersChanged &&
+      !pending.allOrdersChanged &&
       pending.lastOrderTimes.size === 0 &&
       pending.lastPositionChangeTimes.size === 0 &&
       !pending.marketStatsChanged
@@ -236,6 +242,14 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
           : prev.ordersHistory,
         positions: newPositions,
         openOrders: pending.ordersChanged ? new Map(openOrdersRef.current) : prev.openOrders,
+        allOpenOrders: pending.allOrdersChanged
+          ? new Map(
+              Array.from(allOpenOrdersRef.current.entries()).map(([market, ordersMap]) => [
+                market,
+                Array.from(ordersMap.values()),
+              ])
+            )
+          : prev.allOpenOrders,
         lastOrderTimeByMarket: pending.lastOrderTimes.size > 0
           ? new Map([...prev.lastOrderTimeByMarket, ...lastOrderTimeRef.current])
           : prev.lastOrderTimeByMarket,
@@ -318,6 +332,13 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
       pending.newOrdersCount++;
       pending.orderPoints.push({ time: order.created_at, value: 0 }); // Value recalculated on flush
 
+      // Track in allOpenOrders
+      if (!allOpenOrdersRef.current.has(order.market)) {
+        allOpenOrdersRef.current.set(order.market, new Map());
+      }
+      allOpenOrdersRef.current.get(order.market)!.set(order.id, order);
+      pending.allOrdersChanged = true;
+
       // Update per-market order count
       const stats = marketStatsRef.current.get(order.market) || {
         market: order.market,
@@ -338,8 +359,19 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
       if (existingOrder?.id === order.id) {
         openOrdersRef.current.delete(order.market);
         pending.ordersChanged = true;
-        scheduleUpdate();
       }
+
+      // Remove from allOpenOrders
+      const marketOrders = allOpenOrdersRef.current.get(order.market);
+      if (marketOrders) {
+        marketOrders.delete(order.id);
+        if (marketOrders.size === 0) {
+          allOpenOrdersRef.current.delete(order.market);
+        }
+        pending.allOrdersChanged = true;
+      }
+
+      scheduleUpdate();
     }
   }, [scheduleUpdate]);
 
@@ -573,17 +605,29 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
 
       log('Fetched open orders:', orders.length);
 
-      // Store orders by market (most recent per market)
+      // Store orders by market (most recent per market) and all orders
       orders.forEach(order => {
         const existing = openOrdersRef.current.get(order.market);
         if (!existing || order.created_at > existing.created_at) {
           openOrdersRef.current.set(order.market, order);
         }
+
+        // Track in allOpenOrders
+        if (!allOpenOrdersRef.current.has(order.market)) {
+          allOpenOrdersRef.current.set(order.market, new Map());
+        }
+        allOpenOrdersRef.current.get(order.market)!.set(order.id, order);
       });
 
       setState(prev => ({
         ...prev,
         openOrders: new Map(openOrdersRef.current),
+        allOpenOrders: new Map(
+          Array.from(allOpenOrdersRef.current.entries()).map(([market, ordersMap]) => [
+            market,
+            Array.from(ordersMap.values()),
+          ])
+        ),
       }));
     } catch (err) {
       console.error('Failed to fetch initial orders:', err);
