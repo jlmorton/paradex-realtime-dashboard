@@ -149,12 +149,16 @@ export const PositionsTable = memo(function PositionsTable({ positions, openOrde
                   </td>
                   <td className="py-3 pr-4">
                     {exitOrder ? (
-                      <div className="flex flex-col">
+                      <div className="flex items-center gap-1.5">
                         <span className={exitOrder.side === 'BUY' ? 'text-paradex-green' : 'text-paradex-red'}>
                           ${formatPrice(exitOrder.price)}
                         </span>
-                        <span className="text-xs text-gray-500">
-                          {exitOrder.side} {exitOrder.type}
+                        <span className={`text-[10px] px-1 py-0.5 rounded font-medium ${
+                          exitOrder.side === 'BUY'
+                            ? 'bg-paradex-green/20 text-paradex-green'
+                            : 'bg-paradex-red/20 text-paradex-red'
+                        }`}>
+                          {exitOrder.side[0]}{exitOrder.type[0]}
                         </span>
                       </div>
                     ) : (
