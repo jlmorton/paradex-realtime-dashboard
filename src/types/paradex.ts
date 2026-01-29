@@ -17,10 +17,32 @@ export interface Order {
   side: 'BUY' | 'SELL';
   type: string;
   size: string;
+  remaining_size?: string;
   price: string;
   status: 'NEW' | 'OPEN' | 'CLOSED' | 'CANCELED' | 'REJECTED';
   created_at: number;
+  updated_at?: number;
   client_id?: string;
+}
+
+export interface Position {
+  id: string;
+  market: string;
+  side: 'LONG' | 'SHORT';
+  status: 'OPEN' | 'CLOSED';
+  size: string;
+  leverage?: string;
+  average_entry_price: string;
+  average_entry_price_usd?: string;
+  liquidation_price?: string;
+  unrealized_pnl: string;
+  unrealized_funding_pnl?: string;
+  realized_positional_pnl?: string;
+  cost?: string;
+  cost_usd?: string;
+  cached_funding_index?: string;
+  created_at?: number;
+  last_updated_at?: number;
 }
 
 export interface Account {
@@ -53,6 +75,8 @@ export interface DashboardState {
   ordersHistory: { time: number; value: number }[];
   equityHistory: { time: number; value: number }[];
   recentFills: Fill[];
+  positions: Position[];
+  openOrders: Map<string, Order>; // market -> most recent open order on opposite side
 }
 
 export interface ParadexConfig {

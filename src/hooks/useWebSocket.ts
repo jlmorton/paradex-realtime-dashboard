@@ -1,20 +1,30 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { Fill, Order, DashboardState } from '../types/paradex';
+import type { Fill, Order, Position, DashboardState } from '../types/paradex';
 
 const WS_URL = 'wss://ws.api.prod.paradex.trade/v1';
+const REST_API_URL = 'https://api.prod.paradex.trade/v1';
 
 interface UseWebSocketOptions {
   jwtToken: string | null;
   onStateUpdate?: (state: DashboardState) => void;
 }
 
-interface Position {
+// Use the Position type from types/paradex.ts for WebSocket updates
+// WebSocket sends partial updates, so we merge with existing data
+interface WSPosition {
   market: string;
   side: string;
+  status?: string;
   size: string;
+  leverage?: string;
   unrealized_pnl: string;
-  realized_positional_pnl: string;
+  unrealized_funding_pnl?: string;
+  realized_positional_pnl?: string;
   average_entry_price: string;
+  average_entry_price_usd?: string;
+  liquidation_price?: string;
+  cost?: string;
+  cost_usd?: string;
 }
 
 interface AccountData {
@@ -59,10 +69,14 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
     ordersHistory: [],
     equityHistory: [],
     recentFills: [],
+    positions: [],
+    openOrders: new Map(),
   });
 
-  // Track positions for aggregating P&L
-  const positionsRef = useRef<Map<string, Position>>(new Map());
+  // Track positions for aggregating P&L (internal ref for quick lookup)
+  const positionsRef = useRef<Map<string, WSPosition>>(new Map());
+  // Track open orders by market for showing exit prices
+  const openOrdersRef = useRef<Map<string, Order>>(new Map());
 
   const updatePnLFromPositions = useCallback(() => {
     let totalUnrealized = 0;
@@ -111,7 +125,12 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
 
   const handleOrder = useCallback((order: Order) => {
     console.log('Processing order:', order.status, order);
+
+    // Track open orders for showing exit prices
     if (order.status === 'NEW' || order.status === 'OPEN') {
+      // Store the most recent open order for this market
+      openOrdersRef.current.set(order.market, order);
+
       // Use the order's actual creation timestamp
       const orderTime = order.created_at;
       setState(prev => {
@@ -130,14 +149,56 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
           ...prev,
           ordersCreated: newCount,
           ordersHistory: recalculatedHistory,
+          openOrders: new Map(openOrdersRef.current),
         };
       });
+    } else if (order.status === 'CLOSED' || order.status === 'CANCELED' || order.status === 'REJECTED') {
+      // Remove closed/canceled orders
+      const existingOrder = openOrdersRef.current.get(order.market);
+      if (existingOrder?.id === order.id) {
+        openOrdersRef.current.delete(order.market);
+        setState(prev => ({
+          ...prev,
+          openOrders: new Map(openOrdersRef.current),
+        }));
+      }
     }
   }, []);
 
-  const handlePosition = useCallback((position: Position) => {
-    console.log('Processing position:', position);
-    positionsRef.current.set(position.market, position);
+  const handlePosition = useCallback((wsPosition: WSPosition) => {
+    console.log('Processing position:', wsPosition);
+
+    // Update ref for quick P&L calculation
+    if (wsPosition.status === 'CLOSED' || parseFloat(wsPosition.size) === 0) {
+      positionsRef.current.delete(wsPosition.market);
+    } else {
+      positionsRef.current.set(wsPosition.market, wsPosition);
+    }
+
+    // Update state with positions array
+    setState(prev => {
+      const positionsArray: Position[] = [];
+      positionsRef.current.forEach((pos, market) => {
+        positionsArray.push({
+          id: market, // Use market as ID for WS updates
+          market,
+          side: pos.side as 'LONG' | 'SHORT',
+          status: 'OPEN',
+          size: pos.size,
+          leverage: pos.leverage,
+          average_entry_price: pos.average_entry_price,
+          average_entry_price_usd: pos.average_entry_price_usd,
+          liquidation_price: pos.liquidation_price,
+          unrealized_pnl: pos.unrealized_pnl,
+          unrealized_funding_pnl: pos.unrealized_funding_pnl,
+          realized_positional_pnl: pos.realized_positional_pnl,
+          cost: pos.cost,
+          cost_usd: pos.cost_usd,
+        });
+      });
+      return { ...prev, positions: positionsArray };
+    });
+
     updatePnLFromPositions();
   }, [updatePnLFromPositions]);
 
@@ -237,6 +298,92 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
     });
   }, [sendMessage]);
 
+  // Fetch initial positions via REST API
+  const fetchInitialPositions = useCallback(async (token: string) => {
+    try {
+      console.log('Fetching initial positions...');
+      const response = await fetch(`${REST_API_URL}/positions`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch positions: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const positions: Position[] = (data.results || []).filter(
+        (p: Position) => p.status === 'OPEN'
+      );
+
+      console.log('Fetched positions:', positions);
+
+      // Update state with fetched positions
+      positions.forEach(pos => {
+        const wsPos: WSPosition = {
+          market: pos.market,
+          side: pos.side,
+          status: pos.status,
+          size: pos.size,
+          leverage: pos.leverage,
+          unrealized_pnl: pos.unrealized_pnl,
+          unrealized_funding_pnl: pos.unrealized_funding_pnl,
+          realized_positional_pnl: pos.realized_positional_pnl,
+          average_entry_price: pos.average_entry_price,
+          average_entry_price_usd: pos.average_entry_price_usd,
+          liquidation_price: pos.liquidation_price,
+          cost: pos.cost,
+          cost_usd: pos.cost_usd,
+        };
+        positionsRef.current.set(pos.market, wsPos);
+      });
+
+      setState(prev => ({ ...prev, positions }));
+      updatePnLFromPositions();
+    } catch (err) {
+      console.error('Failed to fetch initial positions:', err);
+    }
+  }, [updatePnLFromPositions]);
+
+  // Fetch initial open orders via REST API
+  const fetchInitialOrders = useCallback(async (token: string) => {
+    try {
+      console.log('Fetching initial open orders...');
+      const response = await fetch(`${REST_API_URL}/orders?status=OPEN`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch orders: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const orders: Order[] = data.results || [];
+
+      console.log('Fetched open orders:', orders);
+
+      // Store orders by market (most recent per market)
+      orders.forEach(order => {
+        const existing = openOrdersRef.current.get(order.market);
+        if (!existing || order.created_at > existing.created_at) {
+          openOrdersRef.current.set(order.market, order);
+        }
+      });
+
+      setState(prev => ({
+        ...prev,
+        openOrders: new Map(openOrdersRef.current),
+      }));
+    } catch (err) {
+      console.error('Failed to fetch initial orders:', err);
+    }
+  }, []);
+
   // Re-authenticate when token refreshes (without reconnecting)
   useEffect(() => {
     // If already connected and we have a new token, just re-authenticate
@@ -298,6 +445,11 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
             console.log('WebSocket authenticated');
             setIsConnected(true);
             subscribe();
+            // Fetch initial data via REST API
+            if (jwtToken) {
+              fetchInitialPositions(jwtToken);
+              fetchInitialOrders(jwtToken);
+            }
           }
           return;
         }
@@ -345,7 +497,7 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
       ws.close();
       wsRef.current = null;
     };
-  }, [jwtToken, subscribe, processSubscriptionData]);
+  }, [jwtToken, subscribe, processSubscriptionData, fetchInitialPositions, fetchInitialOrders]);
 
   useEffect(() => {
     if (onStateUpdate) {

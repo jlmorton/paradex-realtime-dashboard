@@ -6,6 +6,7 @@ import { PnLChart } from './components/PnLChart';
 import { VolumeChart } from './components/VolumeChart';
 import { OrdersChart } from './components/OrdersChart';
 import { AccountValueChart } from './components/AccountValueChart';
+import { PositionsTable } from './components/PositionsTable';
 import { FillsTable } from './components/FillsTable';
 
 function App() {
@@ -123,6 +124,12 @@ function App() {
                 colorClass="text-paradex-red"
               />
             </div>
+
+            {/* Positions Table */}
+            <PositionsTable
+              positions={state.positions}
+              openOrders={state.openOrders}
+            />
 
             {/* Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
