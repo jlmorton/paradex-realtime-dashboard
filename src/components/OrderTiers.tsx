@@ -150,7 +150,7 @@ export const OrderTiers = memo(function OrderTiers({ allOpenOrders }: OrderTiers
   if (marketSummaries.length === 0) {
     return (
       <div className="bg-paradex-card border border-paradex-border rounded-lg p-4">
-        <h3 className="text-sm font-medium text-gray-400 mb-3">Open Orders by Market</h3>
+        <h3 className="text-sm font-medium text-gray-400 mb-3">Your Open Orders by Market</h3>
         <div className="text-gray-500 text-sm text-center py-2">No open orders</div>
       </div>
     );
@@ -158,7 +158,7 @@ export const OrderTiers = memo(function OrderTiers({ allOpenOrders }: OrderTiers
 
   return (
     <div className="bg-paradex-card border border-paradex-border rounded-lg p-4">
-      <h3 className="text-sm font-medium text-gray-400 mb-3">Open Orders by Market</h3>
+      <h3 className="text-sm font-medium text-gray-400 mb-3">Your Open Orders by Market</h3>
       <div className="flex flex-wrap gap-3">
         {marketSummaries.map((summary) => (
           <div
