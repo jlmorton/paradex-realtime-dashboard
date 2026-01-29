@@ -16,39 +16,11 @@ interface VolumeChartProps {
   data: VolumeDataPoint[];
 }
 
-// Color palette for different markets - high contrast, easily distinguishable
-const MARKET_COLORS: Record<string, string> = {
-  'BTC-USD-PERP': '#f7931a',  // Bitcoin orange
-  'ETH-USD-PERP': '#3b82f6',  // Bright blue
-  'SOL-USD-PERP': '#a855f7',  // Purple
-  'AVAX-USD-PERP': '#ef4444',  // Red
-  'ARB-USD-PERP': '#06b6d4',  // Cyan
-  'OP-USD-PERP': '#ec4899',   // Pink
-  'DOGE-USD-PERP': '#fbbf24', // Yellow
-  'LINK-USD-PERP': '#14b8a6', // Teal
-  'MATIC-USD-PERP': '#8b5cf6', // Violet
-  'BNB-USD-PERP': '#f59e0b',  // Amber
-  'XRP-USD-PERP': '#64748b',  // Slate
-  'PAXG-USD-PERP': '#d4af37', // Gold
-};
-
-// Fallback colors with maximum visual distinction
-const DEFAULT_COLORS = [
-  '#ef4444', // Red
-  '#3b82f6', // Blue
-  '#22c55e', // Green
-  '#f59e0b', // Amber
-  '#a855f7', // Purple
-  '#06b6d4', // Cyan
-  '#ec4899', // Pink
-  '#84cc16', // Lime
-  '#f97316', // Orange
-  '#64748b', // Slate
+// Colors for stacked bars - just cycle through by index
+const COLORS = [
+  '#f7931a', '#627eea', '#14f195', '#f0b90b', '#e84142',
+  '#a855f7', '#06b6d4', '#ec4899', '#84cc16', '#64748b',
 ];
-
-function getMarketColor(market: string, index: number): string {
-  return MARKET_COLORS[market] || DEFAULT_COLORS[index % DEFAULT_COLORS.length];
-}
 
 // Get short name from market (e.g., "BTC-USD-PERP" -> "BTC")
 function getShortName(market: string): string {
@@ -172,7 +144,7 @@ export const VolumeChart = memo(function VolumeChart({ data }: VolumeChartProps)
                   yAxisId="left"
                   dataKey={market}
                   stackId="volume"
-                  fill={getMarketColor(market, index)}
+                  fill={COLORS[index % COLORS.length]}
                   name={market}
                   isAnimationActive={false}
                 />
@@ -197,7 +169,7 @@ export const VolumeChart = memo(function VolumeChart({ data }: VolumeChartProps)
           {markets.map((market, index) => (
             <div key={market} className="flex items-center gap-1.5">
               <MarketIcon symbol={getShortName(market)} size={14} />
-              <span className="text-xs" style={{ color: getMarketColor(market, index) }}>{getShortName(market)}</span>
+              <span className="text-xs" style={{ color: COLORS[index % COLORS.length] }}>{getShortName(market)}</span>
             </div>
           ))}
           <div className="flex items-center gap-1.5">

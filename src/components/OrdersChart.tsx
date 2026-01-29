@@ -16,31 +16,11 @@ interface OrdersChartProps {
   data: OrderDataPoint[];
 }
 
-// Market colors for stacked bars - matching VolumeChart
-const MARKET_COLORS: Record<string, string> = {
-  BTC: '#f7931a',   // Bitcoin orange
-  ETH: '#627eea',   // Ethereum blue
-  SOL: '#14f195',   // Solana green
-  ARB: '#28a0f0',   // Arbitrum cyan
-  BNB: '#f0b90b',   // Binance yellow
-  XRP: '#23292f',   // XRP dark (will use fallback)
-  PAXG: '#d4af37',  // Gold
-  AVAX: '#e84142',  // Avalanche red
-  OP: '#ff0420',    // Optimism red
-  DOGE: '#c2a633',  // Doge gold
-  LINK: '#2a5ada',  // Chainlink blue
-  MATIC: '#8247e5', // Polygon purple
-};
-
-// Fallback colors for markets not in the map
-const FALLBACK_COLORS = [
-  '#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#a855f7',
-  '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#64748b',
+// Colors for stacked bars - just cycle through by index
+const COLORS = [
+  '#f7931a', '#627eea', '#14f195', '#f0b90b', '#e84142',
+  '#a855f7', '#06b6d4', '#ec4899', '#84cc16', '#64748b',
 ];
-
-const getMarketColor = (market: string, index: number = 0) => {
-  return MARKET_COLORS[market] || FALLBACK_COLORS[index % FALLBACK_COLORS.length];
-};
 
 interface AggregatedData {
   data: Record<string, number>[];
@@ -130,7 +110,7 @@ export const OrdersChart = memo(function OrdersChart({ data }: OrdersChartProps)
                   dataKey={market}
                   name={market}
                   stackId="orders"
-                  fill={getMarketColor(market, index)}
+                  fill={COLORS[index % COLORS.length]}
                   isAnimationActive={false}
                 />
               ))}
@@ -153,7 +133,7 @@ export const OrdersChart = memo(function OrdersChart({ data }: OrdersChartProps)
           {markets.map((market: string, index: number) => (
             <div key={market} className="flex items-center gap-1.5">
               <MarketIcon symbol={market} size={14} />
-              <span className="text-xs" style={{ color: getMarketColor(market, index) }}>{market}</span>
+              <span className="text-xs" style={{ color: COLORS[index % COLORS.length] }}>{market}</span>
             </div>
           ))}
           <div className="flex items-center gap-1.5">
