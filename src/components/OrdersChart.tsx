@@ -16,16 +16,30 @@ interface OrdersChartProps {
   data: OrderDataPoint[];
 }
 
-// Market colors for stacked bars
+// Market colors for stacked bars - matching VolumeChart
 const MARKET_COLORS: Record<string, string> = {
-  BTC: '#f7931a',
-  ETH: '#627eea',
-  SOL: '#14f195',
-  ARB: '#28a0f0',
+  BTC: '#f7931a',   // Bitcoin orange
+  ETH: '#627eea',   // Ethereum blue
+  SOL: '#14f195',   // Solana green
+  ARB: '#28a0f0',   // Arbitrum cyan
+  BNB: '#f0b90b',   // Binance yellow
+  XRP: '#23292f',   // XRP dark (will use fallback)
+  PAXG: '#d4af37',  // Gold
+  AVAX: '#e84142',  // Avalanche red
+  OP: '#ff0420',    // Optimism red
+  DOGE: '#c2a633',  // Doge gold
+  LINK: '#2a5ada',  // Chainlink blue
+  MATIC: '#8247e5', // Polygon purple
 };
 
-const getMarketColor = (market: string) => {
-  return MARKET_COLORS[market] || '#6b7280';
+// Fallback colors for markets not in the map
+const FALLBACK_COLORS = [
+  '#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#a855f7',
+  '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#64748b',
+];
+
+const getMarketColor = (market: string, index: number = 0) => {
+  return MARKET_COLORS[market] || FALLBACK_COLORS[index % FALLBACK_COLORS.length];
 };
 
 interface AggregatedData {
@@ -110,18 +124,16 @@ export const OrdersChart = memo(function OrdersChart({ data }: OrdersChartProps)
                 }}
                 labelFormatter={formatTime}
               />
-              {markets.includes('ARB') && (
-                <Bar dataKey="ARB" stackId="orders" fill="#28a0f0" isAnimationActive={false} />
-              )}
-              {markets.includes('BTC') && (
-                <Bar dataKey="BTC" stackId="orders" fill="#f7931a" isAnimationActive={false} />
-              )}
-              {markets.includes('ETH') && (
-                <Bar dataKey="ETH" stackId="orders" fill="#627eea" isAnimationActive={false} />
-              )}
-              {markets.includes('SOL') && (
-                <Bar dataKey="SOL" stackId="orders" fill="#14f195" isAnimationActive={false} />
-              )}
+              {markets.map((market: string, index: number) => (
+                <Bar
+                  key={market}
+                  dataKey={market}
+                  name={market}
+                  stackId="orders"
+                  fill={getMarketColor(market, index)}
+                  isAnimationActive={false}
+                />
+              ))}
               <Line
                 type="monotone"
                 dataKey="total"
@@ -138,10 +150,10 @@ export const OrdersChart = memo(function OrdersChart({ data }: OrdersChartProps)
       {/* Custom legend with icons */}
       {markets.length > 0 && (
         <div className="flex flex-wrap items-center justify-center gap-4 mt-3">
-          {markets.map((market: string) => (
+          {markets.map((market: string, index: number) => (
             <div key={market} className="flex items-center gap-1.5">
               <MarketIcon symbol={market} size={14} />
-              <span className="text-xs" style={{ color: getMarketColor(market) }}>{market}</span>
+              <span className="text-xs" style={{ color: getMarketColor(market, index) }}>{market}</span>
             </div>
           ))}
           <div className="flex items-center gap-1.5">
