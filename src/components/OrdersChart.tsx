@@ -110,16 +110,18 @@ export const OrdersChart = memo(function OrdersChart({ data }: OrdersChartProps)
                 }}
                 labelFormatter={formatTime}
               />
-              {markets.map((market: string) => (
-                <Bar
-                  key={market}
-                  dataKey={market}
-                  stackId="orders"
-                  fill={getMarketColor(market)}
-                  radius={[0, 0, 0, 0]}
-                  isAnimationActive={false}
-                />
-              ))}
+              {markets.includes('ARB') && (
+                <Bar dataKey="ARB" stackId="orders" fill="#28a0f0" isAnimationActive={false} />
+              )}
+              {markets.includes('BTC') && (
+                <Bar dataKey="BTC" stackId="orders" fill="#f7931a" isAnimationActive={false} />
+              )}
+              {markets.includes('ETH') && (
+                <Bar dataKey="ETH" stackId="orders" fill="#627eea" isAnimationActive={false} />
+              )}
+              {markets.includes('SOL') && (
+                <Bar dataKey="SOL" stackId="orders" fill="#14f195" isAnimationActive={false} />
+              )}
               <Line
                 type="monotone"
                 dataKey="total"
