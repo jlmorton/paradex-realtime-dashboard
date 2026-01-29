@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { Fill, Order, Position, DashboardState, VolumeDataPoint } from '../types/paradex';
+import type { Fill, Order, Position, DashboardState, VolumeDataPoint, MarketStats } from '../types/paradex';
 
 const WS_URL = 'wss://ws.api.prod.paradex.trade/v1';
 const REST_API_URL = 'https://api.prod.paradex.trade/v1';
@@ -75,6 +75,7 @@ interface PendingUpdates {
   ordersChanged: boolean;
   lastOrderTimes: Map<string, number>; // market -> timestamp
   lastPositionChangeTimes: Map<string, number>; // market -> timestamp
+  marketStatsChanged: boolean;
 }
 
 function createEmptyPendingUpdates(): PendingUpdates {
@@ -94,6 +95,7 @@ function createEmptyPendingUpdates(): PendingUpdates {
     ordersChanged: false,
     lastOrderTimes: new Map(),
     lastPositionChangeTimes: new Map(),
+    marketStatsChanged: false,
   };
 }
 
@@ -123,6 +125,7 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
     openOrders: new Map(),
     lastOrderTimeByMarket: new Map(),
     lastPositionChangeByMarket: new Map(),
+    marketStats: new Map(),
   });
 
   // Track positions for aggregating P&L (internal ref for quick lookup)
@@ -133,6 +136,8 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
   const lastOrderTimeRef = useRef<Map<string, number>>(new Map());
   // Track last position change time per market
   const lastPositionChangeRef = useRef<Map<string, number>>(new Map());
+  // Track per-market statistics
+  const marketStatsRef = useRef<Map<string, MarketStats>>(new Map());
 
   // Batched updates
   const pendingUpdatesRef = useRef<PendingUpdates>(createEmptyPendingUpdates());
@@ -165,7 +170,8 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
       !pending.positionsChanged &&
       !pending.ordersChanged &&
       pending.lastOrderTimes.size === 0 &&
-      pending.lastPositionChangeTimes.size === 0
+      pending.lastPositionChangeTimes.size === 0 &&
+      !pending.marketStatsChanged
     ) {
       return;
     }
@@ -236,6 +242,9 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
         lastPositionChangeByMarket: pending.lastPositionChangeTimes.size > 0
           ? new Map([...prev.lastPositionChangeByMarket, ...lastPositionChangeRef.current])
           : prev.lastPositionChangeByMarket,
+        marketStats: pending.marketStatsChanged
+          ? new Map(marketStatsRef.current)
+          : prev.marketStats,
       };
     });
 
@@ -266,6 +275,23 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
     pending.volumeDelta += fillVolume;
     pending.volumePoints.push({ time: now, value: fillVolume, market: fill.market });
 
+    // Update per-market stats
+    const stats = marketStatsRef.current.get(fill.market) || {
+      market: fill.market,
+      realizedPnL: 0,
+      unrealizedPnL: 0,
+      fees: 0,
+      volume: 0,
+      orderCount: 0,
+      fillCount: 0,
+    };
+    stats.realizedPnL += fillRealizedPnL;
+    stats.fees += fillFee;
+    stats.volume += fillVolume;
+    stats.fillCount += 1;
+    marketStatsRef.current.set(fill.market, stats);
+    pending.marketStatsChanged = true;
+
     // Calculate new total P&L for chart
     const currentState = stateRef.current;
     const newRealizedPnL = currentState.realizedPnL + pending.realizedPnLDelta;
@@ -291,6 +317,21 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
       pending.ordersChanged = true;
       pending.newOrdersCount++;
       pending.orderPoints.push({ time: order.created_at, value: 0 }); // Value recalculated on flush
+
+      // Update per-market order count
+      const stats = marketStatsRef.current.get(order.market) || {
+        market: order.market,
+        realizedPnL: 0,
+        unrealizedPnL: 0,
+        fees: 0,
+        volume: 0,
+        orderCount: 0,
+        fillCount: 0,
+      };
+      stats.orderCount += 1;
+      marketStatsRef.current.set(order.market, stats);
+      pending.marketStatsChanged = true;
+
       scheduleUpdate();
     } else if (order.status === 'CLOSED' || order.status === 'CANCELED' || order.status === 'REJECTED') {
       const existingOrder = openOrdersRef.current.get(order.market);
@@ -314,8 +355,27 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
     // Update ref for quick P&L calculation
     if (wsPosition.status === 'CLOSED' || parseFloat(wsPosition.size) === 0) {
       positionsRef.current.delete(wsPosition.market);
+      // Clear unrealized P&L for this market
+      const stats = marketStatsRef.current.get(wsPosition.market);
+      if (stats) {
+        stats.unrealizedPnL = 0;
+        pending.marketStatsChanged = true;
+      }
     } else {
       positionsRef.current.set(wsPosition.market, wsPosition);
+      // Update unrealized P&L for this market
+      const stats = marketStatsRef.current.get(wsPosition.market) || {
+        market: wsPosition.market,
+        realizedPnL: 0,
+        unrealizedPnL: 0,
+        fees: 0,
+        volume: 0,
+        orderCount: 0,
+        fillCount: 0,
+      };
+      stats.unrealizedPnL = parseFloat(wsPosition.unrealized_pnl) || 0;
+      marketStatsRef.current.set(wsPosition.market, stats);
+      pending.marketStatsChanged = true;
     }
 
     // Calculate total unrealized P&L

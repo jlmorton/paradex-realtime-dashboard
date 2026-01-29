@@ -69,6 +69,16 @@ export interface VolumeDataPoint {
   market: string;
 }
 
+export interface MarketStats {
+  market: string;
+  realizedPnL: number;
+  unrealizedPnL: number;
+  fees: number;
+  volume: number;
+  orderCount: number;
+  fillCount: number;
+}
+
 export interface DashboardState {
   realizedPnL: number;
   unrealizedPnL: number;
@@ -85,6 +95,7 @@ export interface DashboardState {
   openOrders: Map<string, Order>; // market -> most recent open order on opposite side
   lastOrderTimeByMarket: Map<string, number>; // market -> timestamp of last order
   lastPositionChangeByMarket: Map<string, number>; // market -> timestamp of last position update
+  marketStats: Map<string, MarketStats>; // market -> aggregated stats
 }
 
 export interface ParadexConfig {

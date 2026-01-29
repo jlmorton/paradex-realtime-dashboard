@@ -9,6 +9,7 @@ import { OrdersChart } from './components/OrdersChart';
 import { AccountValueChart } from './components/AccountValueChart';
 import { PositionsTable } from './components/PositionsTable';
 import { FillsTable } from './components/FillsTable';
+import { MarketStatsTable } from './components/MarketStatsTable';
 
 function App() {
   const {
@@ -146,6 +147,9 @@ function App() {
 
             {/* Fills Table */}
             <FillsTable fills={state.recentFills} />
+
+            {/* Market Summary */}
+            <MarketStatsTable marketStats={state.marketStats} />
           </div>
         )}
       </main>
