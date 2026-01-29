@@ -1,6 +1,7 @@
 import { memo, useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import type { Order, MarketConfig } from '../types/paradex';
 import { formatPriceWithConfig, formatSizeWithConfig } from '../hooks/useMarketConfig';
+import { MarketIcon } from './MarketIcon';
 
 interface OrderTiersProps {
   allOpenOrders: Map<string, Order[]>;
@@ -212,7 +213,10 @@ export const OrderTiers = memo(function OrderTiers({ allOpenOrders, marketConfig
               summary.hasOrders ? 'border-paradex-border' : 'border-paradex-border/50 opacity-60'
             }`}
           >
-            <div className="text-white font-medium text-sm mb-1">{summary.shortName}</div>
+            <div className="flex items-center gap-1.5 text-white font-medium text-sm mb-1">
+              <MarketIcon symbol={summary.shortName} size={16} />
+              {summary.shortName}
+            </div>
             {!summary.hasOrders ? (
               <div className="text-gray-500 text-xs">No orders</div>
             ) : (

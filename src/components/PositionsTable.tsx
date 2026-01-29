@@ -1,6 +1,7 @@
 import { memo, useRef, useState, useEffect } from 'react';
 import type { Position, Order, MarketConfig } from '../types/paradex';
 import { formatPriceWithConfig, formatSizeWithConfig } from '../hooks/useMarketConfig';
+import { MarketIcon, getBaseSymbol } from './MarketIcon';
 
 interface PositionsTableProps {
   positions: Position[];
@@ -192,6 +193,7 @@ export const PositionsTable = memo(function PositionsTable({ positions, openOrde
                 >
                   <td className="py-3 pr-4">
                     <div className="flex items-center gap-2">
+                      <MarketIcon symbol={getBaseSymbol(position.market)} size={18} />
                       <span className="text-white font-medium">{position.market}</span>
                       <span className="text-xs bg-paradex-border px-1.5 py-0.5 rounded text-gray-300">
                         PERP

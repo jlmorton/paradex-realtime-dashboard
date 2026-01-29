@@ -1,6 +1,7 @@
 import { memo, useState } from 'react';
 import type { Fill, MarketConfig } from '../types/paradex';
 import { formatPriceWithConfig, formatSizeWithConfig } from '../hooks/useMarketConfig';
+import { MarketIcon, getBaseSymbol } from './MarketIcon';
 
 interface FillsTableProps {
   fills: Fill[];
@@ -98,8 +99,11 @@ export const FillsTable = memo(function FillsTable({ fills, marketConfigs }: Fil
                   <td className="py-3 px-2 text-gray-400 text-sm">
                     {formatTime(fill.created_at)}
                   </td>
-                  <td className="py-3 px-2 text-white font-medium">
-                    {fill.market}
+                  <td className="py-3 px-2">
+                    <div className="flex items-center gap-1.5">
+                      <MarketIcon symbol={getBaseSymbol(fill.market)} size={16} />
+                      <span className="text-white font-medium">{fill.market}</span>
+                    </div>
                   </td>
                   <td className="py-3 px-2">
                     <span

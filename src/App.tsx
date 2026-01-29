@@ -13,6 +13,7 @@ import { PositionsTable } from './components/PositionsTable';
 import { FillsTable } from './components/FillsTable';
 import { OrderTiers } from './components/OrderTiers';
 import { MarketStatsTable } from './components/MarketStatsTable';
+import { FillsMetricCard } from './components/FillsMetricCard';
 
 const CheckIcon = () => (
   <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -65,21 +66,6 @@ function App() {
 
   const totalPnL = state.realizedPnL - state.totalFees + state.unrealizedPnL;
   const pnlColor = totalPnL >= 0 ? 'text-paradex-green' : 'text-paradex-red';
-
-  // Calculate fills by market for subtitle
-  const fillsByMarket = state.recentFills.reduce((acc, fill) => {
-    const market = fill.market.split('-')[0]; // Get short name like "BTC"
-    acc[market] = (acc[market] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const topFillsMarkets = Object.entries(fillsByMarket)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 4)
-    .map(([market, count]) => `${market}: ${count}`)
-    .join(' · ');
-
-  const totalFills = state.recentFills.length;
 
   return (
     <div className="min-h-screen bg-paradex-dark">
@@ -196,11 +182,7 @@ function App() {
               label="Orders Created"
               value={state.ordersCreated.toString()}
             />
-            <MetricCard
-              label="Fills"
-              value={totalFills.toString()}
-              subtitle={topFillsMarkets || undefined}
-            />
+            <FillsMetricCard fills={state.recentFills} />
           </div>
 
           {/* Realized/Unrealized P&L breakdown */}
