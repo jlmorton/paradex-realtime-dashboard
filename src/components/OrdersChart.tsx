@@ -8,9 +8,9 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from 'recharts';
 import type { OrderDataPoint } from '../types/paradex';
+import { MarketIcon } from './MarketIcon';
 
 interface OrdersChartProps {
   data: OrderDataPoint[];
@@ -25,8 +25,7 @@ const MARKET_COLORS: Record<string, string> = {
 };
 
 const getMarketColor = (market: string) => {
-  const base = market.split('-')[0];
-  return MARKET_COLORS[base] || '#6b7280';
+  return MARKET_COLORS[market] || '#6b7280';
 };
 
 interface AggregatedData {
@@ -83,7 +82,7 @@ export const OrdersChart = memo(function OrdersChart({ data }: OrdersChartProps)
   return (
     <div className="bg-paradex-card border border-paradex-border rounded-lg p-6">
       <h3 className="text-white font-medium mb-4">Orders Over Time</h3>
-      <div className="h-64">
+      <div className="h-56">
         {data.length === 0 ? (
           <div className="h-full flex items-center justify-center text-gray-500">
             Waiting for orders...
@@ -111,10 +110,6 @@ export const OrdersChart = memo(function OrdersChart({ data }: OrdersChartProps)
                 }}
                 labelFormatter={formatTime}
               />
-              <Legend
-                wrapperStyle={{ paddingTop: '10px' }}
-                formatter={(value) => <span className="text-gray-400 text-xs">{value}</span>}
-              />
               {markets.map((market: string) => (
                 <Bar
                   key={market}
@@ -138,6 +133,21 @@ export const OrdersChart = memo(function OrdersChart({ data }: OrdersChartProps)
           </ResponsiveContainer>
         )}
       </div>
+      {/* Custom legend with icons */}
+      {markets.length > 0 && (
+        <div className="flex flex-wrap items-center justify-center gap-4 mt-3">
+          {markets.map((market: string) => (
+            <div key={market} className="flex items-center gap-1.5">
+              <MarketIcon symbol={market} size={14} />
+              <span className="text-xs" style={{ color: getMarketColor(market) }}>{market}</span>
+            </div>
+          ))}
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-0.5 bg-white"></div>
+            <span className="text-xs text-white">Total</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 });

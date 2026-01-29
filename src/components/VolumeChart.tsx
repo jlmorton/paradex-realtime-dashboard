@@ -7,10 +7,10 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from 'recharts';
 import type { VolumeDataPoint } from '../types/paradex';
+import { MarketIcon } from './MarketIcon';
 
 interface VolumeChartProps {
   data: VolumeDataPoint[];
@@ -126,7 +126,7 @@ export const VolumeChart = memo(function VolumeChart({ data }: VolumeChartProps)
   return (
     <div className="bg-paradex-card border border-paradex-border rounded-lg p-6">
       <h3 className="text-white font-medium mb-4">Volume Over Time</h3>
-      <div className="h-64">
+      <div className="h-56">
         {data.length === 0 ? (
           <div className="h-full flex items-center justify-center text-gray-500">
             Waiting for fills...
@@ -166,12 +166,6 @@ export const VolumeChart = memo(function VolumeChart({ data }: VolumeChartProps)
                   name === 'total' ? 'Total' : getShortName(name),
                 ]}
               />
-              {markets.length > 1 && (
-                <Legend
-                  formatter={(value) => value === 'total' ? 'Total' : getShortName(value)}
-                  wrapperStyle={{ fontSize: '12px' }}
-                />
-              )}
               {markets.map((market, index) => (
                 <Bar
                   key={market}
@@ -197,6 +191,21 @@ export const VolumeChart = memo(function VolumeChart({ data }: VolumeChartProps)
           </ResponsiveContainer>
         )}
       </div>
+      {/* Custom legend with icons */}
+      {markets.length > 0 && (
+        <div className="flex flex-wrap items-center justify-center gap-4 mt-3">
+          {markets.map((market, index) => (
+            <div key={market} className="flex items-center gap-1.5">
+              <MarketIcon symbol={getShortName(market)} size={14} />
+              <span className="text-xs" style={{ color: getMarketColor(market, index) }}>{getShortName(market)}</span>
+            </div>
+          ))}
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-0.5 bg-emerald-500"></div>
+            <span className="text-xs text-emerald-500">Total</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 });
