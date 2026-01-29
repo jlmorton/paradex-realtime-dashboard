@@ -1,3 +1,4 @@
+import { Analytics } from '@vercel/analytics/react';
 import { useParadexClient } from './hooks/useParadexClient';
 import { useWebSocket } from './hooks/useWebSocket';
 import { ConnectWallet } from './components/ConnectWallet';
@@ -153,6 +154,7 @@ function App() {
           Data tracked since session start
         </div>
       </footer>
+      <Analytics />
     </div>
   );
 }
