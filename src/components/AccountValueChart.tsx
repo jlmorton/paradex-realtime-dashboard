@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react';
 import {
   LineChart,
   Line,
@@ -12,7 +13,22 @@ interface AccountValueChartProps {
   data: { time: number; value: number }[];
 }
 
-export function AccountValueChart({ data }: AccountValueChartProps) {
+// Downsample data for better chart performance
+function downsample(data: { time: number; value: number }[], maxPoints: number) {
+  if (data.length <= maxPoints) return data;
+  const step = Math.ceil(data.length / maxPoints);
+  const result = [];
+  for (let i = 0; i < data.length; i += step) {
+    result.push(data[i]);
+  }
+  // Always include the last point
+  if (result[result.length - 1] !== data[data.length - 1]) {
+    result.push(data[data.length - 1]);
+  }
+  return result;
+}
+
+export const AccountValueChart = memo(function AccountValueChart({ data }: AccountValueChartProps) {
   const formatTime = (timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString();
   };
@@ -20,6 +36,9 @@ export function AccountValueChart({ data }: AccountValueChartProps) {
   const formatValue = (value: number) => {
     return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
+
+  // Downsample to max 200 points for smooth rendering
+  const chartData = useMemo(() => downsample(data, 200), [data]);
 
   return (
     <div className="bg-paradex-card border border-paradex-border rounded-lg p-6">
@@ -31,7 +50,7 @@ export function AccountValueChart({ data }: AccountValueChartProps) {
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data}>
+            <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1e1e2e" />
               <XAxis
                 dataKey="time"
@@ -60,6 +79,7 @@ export function AccountValueChart({ data }: AccountValueChartProps) {
                 stroke="#8b5cf6"
                 strokeWidth={2}
                 dot={false}
+                isAnimationActive={false}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -67,4 +87,4 @@ export function AccountValueChart({ data }: AccountValueChartProps) {
       </div>
     </div>
   );
-}
+});

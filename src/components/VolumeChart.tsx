@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import {
   ComposedChart,
   Bar,
@@ -14,7 +14,22 @@ interface VolumeChartProps {
   data: { time: number; value: number }[];
 }
 
-export function VolumeChart({ data }: VolumeChartProps) {
+// Downsample data for better chart performance
+function downsample(data: { time: number; value: number }[], maxPoints: number) {
+  if (data.length <= maxPoints) return data;
+  const step = Math.ceil(data.length / maxPoints);
+  const result = [];
+  for (let i = 0; i < data.length; i += step) {
+    result.push(data[i]);
+  }
+  // Always include the last point
+  if (result[result.length - 1] !== data[data.length - 1]) {
+    result.push(data[data.length - 1]);
+  }
+  return result;
+}
+
+export const VolumeChart = memo(function VolumeChart({ data }: VolumeChartProps) {
   const formatTime = (timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString();
   };
@@ -30,9 +45,17 @@ export function VolumeChart({ data }: VolumeChartProps) {
   };
 
   const chartData = useMemo(() => {
+    // First downsample, then calculate cumulative
+    const downsampled = downsample(data, 200);
     let cumulative = 0;
-    return data.map((item) => {
-      cumulative += item.value;
+    // Calculate cumulative based on original data up to each downsampled point
+    return downsampled.map((item) => {
+      // Sum all values up to this point in original data
+      const originalIndex = data.indexOf(item);
+      cumulative = 0;
+      for (let i = 0; i <= originalIndex; i++) {
+        cumulative += data[i].value;
+      }
       return {
         ...item,
         total: cumulative,
@@ -88,6 +111,7 @@ export function VolumeChart({ data }: VolumeChartProps) {
                 dataKey="value"
                 fill="#6366f1"
                 radius={[2, 2, 0, 0]}
+                isAnimationActive={false}
               />
               <Line
                 yAxisId="right"
@@ -96,6 +120,7 @@ export function VolumeChart({ data }: VolumeChartProps) {
                 stroke="#10b981"
                 strokeWidth={2}
                 dot={false}
+                isAnimationActive={false}
               />
             </ComposedChart>
           </ResponsiveContainer>
@@ -103,4 +128,4 @@ export function VolumeChart({ data }: VolumeChartProps) {
       </div>
     </div>
   );
-}
+});

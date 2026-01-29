@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react';
 import {
   LineChart,
   Line,
@@ -12,7 +13,22 @@ interface PnLChartProps {
   data: { time: number; value: number }[];
 }
 
-export function PnLChart({ data }: PnLChartProps) {
+// Downsample data for better chart performance
+function downsample(data: { time: number; value: number }[], maxPoints: number) {
+  if (data.length <= maxPoints) return data;
+  const step = Math.ceil(data.length / maxPoints);
+  const result = [];
+  for (let i = 0; i < data.length; i += step) {
+    result.push(data[i]);
+  }
+  // Always include the last point
+  if (result[result.length - 1] !== data[data.length - 1]) {
+    result.push(data[data.length - 1]);
+  }
+  return result;
+}
+
+export const PnLChart = memo(function PnLChart({ data }: PnLChartProps) {
   const formatTime = (timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString();
   };
@@ -20,6 +36,9 @@ export function PnLChart({ data }: PnLChartProps) {
   const formatValue = (value: number) => {
     return `$${value.toFixed(2)}`;
   };
+
+  // Downsample to max 200 points for smooth rendering
+  const chartData = useMemo(() => downsample(data, 200), [data]);
 
   const latestValue = data.length > 0 ? data[data.length - 1].value : 0;
   const lineColor = latestValue >= 0 ? '#22c55e' : '#ef4444';
@@ -34,7 +53,7 @@ export function PnLChart({ data }: PnLChartProps) {
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data}>
+            <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1e1e2e" />
               <XAxis
                 dataKey="time"
@@ -62,6 +81,7 @@ export function PnLChart({ data }: PnLChartProps) {
                 stroke={lineColor}
                 strokeWidth={2}
                 dot={false}
+                isAnimationActive={false}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -69,4 +89,4 @@ export function PnLChart({ data }: PnLChartProps) {
       </div>
     </div>
   );
-}
+});

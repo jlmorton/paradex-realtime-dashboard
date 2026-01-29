@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react';
 import {
   BarChart,
   Bar,
@@ -12,10 +13,28 @@ interface OrdersChartProps {
   data: { time: number; value: number }[];
 }
 
-export function OrdersChart({ data }: OrdersChartProps) {
+// Downsample data for better chart performance
+function downsample(data: { time: number; value: number }[], maxPoints: number) {
+  if (data.length <= maxPoints) return data;
+  const step = Math.ceil(data.length / maxPoints);
+  const result = [];
+  for (let i = 0; i < data.length; i += step) {
+    result.push(data[i]);
+  }
+  // Always include the last point
+  if (result[result.length - 1] !== data[data.length - 1]) {
+    result.push(data[data.length - 1]);
+  }
+  return result;
+}
+
+export const OrdersChart = memo(function OrdersChart({ data }: OrdersChartProps) {
   const formatTime = (timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString();
   };
+
+  // Downsample to max 200 points for smooth rendering
+  const chartData = useMemo(() => downsample(data, 200), [data]);
 
   return (
     <div className="bg-paradex-card border border-paradex-border rounded-lg p-6">
@@ -27,7 +46,7 @@ export function OrdersChart({ data }: OrdersChartProps) {
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data}>
+            <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1e1e2e" />
               <XAxis
                 dataKey="time"
@@ -53,6 +72,7 @@ export function OrdersChart({ data }: OrdersChartProps) {
                 dataKey="value"
                 fill="#f59e0b"
                 radius={[2, 2, 0, 0]}
+                isAnimationActive={false}
               />
             </BarChart>
           </ResponsiveContainer>
@@ -60,4 +80,4 @@ export function OrdersChart({ data }: OrdersChartProps) {
       </div>
     </div>
   );
-}
+});

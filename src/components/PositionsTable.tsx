@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { Position, Order } from '../types/paradex';
 
 interface PositionsTableProps {
@@ -5,7 +6,7 @@ interface PositionsTableProps {
   openOrders: Map<string, Order>;
 }
 
-export function PositionsTable({ positions, openOrders }: PositionsTableProps) {
+export const PositionsTable = memo(function PositionsTable({ positions, openOrders }: PositionsTableProps) {
   const formatPrice = (value: string | undefined) => {
     if (!value) return '-';
     const num = parseFloat(value);
@@ -156,4 +157,4 @@ export function PositionsTable({ positions, openOrders }: PositionsTableProps) {
       </div>
     </div>
   );
-}
+});

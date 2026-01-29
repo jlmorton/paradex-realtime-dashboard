@@ -1,10 +1,11 @@
+import { memo } from 'react';
 import type { Fill } from '../types/paradex';
 
 interface FillsTableProps {
   fills: Fill[];
 }
 
-export function FillsTable({ fills }: FillsTableProps) {
+export const FillsTable = memo(function FillsTable({ fills }: FillsTableProps) {
   const formatTime = (timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString();
   };
@@ -95,4 +96,4 @@ export function FillsTable({ fills }: FillsTableProps) {
       </div>
     </div>
   );
-}
+});
