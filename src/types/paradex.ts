@@ -63,6 +63,12 @@ export interface WebSocketMessage {
   error?: { code: number; message: string };
 }
 
+export interface VolumeDataPoint {
+  time: number;
+  value: number;
+  market: string;
+}
+
 export interface DashboardState {
   realizedPnL: number;
   unrealizedPnL: number;
@@ -71,12 +77,13 @@ export interface DashboardState {
   ordersCreated: number;
   equity: number;
   pnlHistory: { time: number; value: number }[];
-  volumeHistory: { time: number; value: number }[];
+  volumeHistory: VolumeDataPoint[];
   ordersHistory: { time: number; value: number }[];
   equityHistory: { time: number; value: number }[];
   recentFills: Fill[];
   positions: Position[];
   openOrders: Map<string, Order>; // market -> most recent open order on opposite side
+  lastOrderTimeByMarket: Map<string, number>; // market -> timestamp of last order
 }
 
 export interface ParadexConfig {

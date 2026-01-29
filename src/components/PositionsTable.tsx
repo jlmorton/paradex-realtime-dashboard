@@ -4,9 +4,10 @@ import type { Position, Order } from '../types/paradex';
 interface PositionsTableProps {
   positions: Position[];
   openOrders: Map<string, Order>;
+  lastOrderTimeByMarket: Map<string, number>;
 }
 
-export const PositionsTable = memo(function PositionsTable({ positions, openOrders }: PositionsTableProps) {
+export const PositionsTable = memo(function PositionsTable({ positions, openOrders, lastOrderTimeByMarket }: PositionsTableProps) {
   const formatPrice = (value: string | undefined) => {
     if (!value) return '-';
     const num = parseFloat(value);
@@ -48,6 +49,28 @@ export const PositionsTable = memo(function PositionsTable({ positions, openOrde
     return `(${roi >= 0 ? '+' : ''}${roi.toFixed(2)}%)`;
   };
 
+  const formatTimeSince = (timestamp: number | undefined) => {
+    if (!timestamp) return '-';
+    const now = Date.now();
+    const diffMs = now - timestamp;
+    const diffSecs = Math.floor(diffMs / 1000);
+
+    if (diffSecs < 60) {
+      return `${diffSecs}s ago`;
+    }
+    const diffMins = Math.floor(diffSecs / 60);
+    if (diffMins < 60) {
+      return `${diffMins}m ago`;
+    }
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) {
+      const remainMins = diffMins % 60;
+      return remainMins > 0 ? `${diffHours}h ${remainMins}m ago` : `${diffHours}h ago`;
+    }
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays}d ago`;
+  };
+
   // Get exit order for a position (order on opposite side)
   const getExitOrder = (position: Position): Order | undefined => {
     const order = openOrders.get(position.market);
@@ -83,6 +106,7 @@ export const PositionsTable = memo(function PositionsTable({ positions, openOrde
               <th className="pb-3 pr-4">Liq. Price</th>
               <th className="pb-3 pr-4">Unrealized P&L</th>
               <th className="pb-3 pr-4">Realized P&L</th>
+              <th className="pb-3 pr-4">Last Order</th>
             </tr>
           </thead>
           <tbody>
@@ -148,6 +172,9 @@ export const PositionsTable = memo(function PositionsTable({ positions, openOrde
                   </td>
                   <td className="py-3 pr-4">
                     <span className={realizedPnL.color}>{realizedPnL.text}</span>
+                  </td>
+                  <td className="py-3 pr-4 text-gray-400 text-sm">
+                    {formatTimeSince(lastOrderTimeByMarket.get(position.market))}
                   </td>
                 </tr>
               );

@@ -26,6 +26,16 @@ export const FillsTable = memo(function FillsTable({ fills }: FillsTableProps) {
     });
   };
 
+  const formatValue = (size: string, price: string) => {
+    const sizeNum = parseFloat(size);
+    const priceNum = parseFloat(price);
+    const value = sizeNum * priceNum;
+    return value.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
+
   return (
     <div className="bg-paradex-card border border-paradex-border rounded-lg p-6">
       <h3 className="text-white font-medium mb-4">Recent Fills</h3>
@@ -38,13 +48,14 @@ export const FillsTable = memo(function FillsTable({ fills }: FillsTableProps) {
               <th className="text-left py-3 px-2">Side</th>
               <th className="text-right py-3 px-2">Size</th>
               <th className="text-right py-3 px-2">Price</th>
+              <th className="text-right py-3 px-2">Value</th>
               <th className="text-right py-3 px-2">P&L</th>
             </tr>
           </thead>
           <tbody>
             {fills.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center py-8 text-gray-500">
+                <td colSpan={7} className="text-center py-8 text-gray-500">
                   No fills yet
                 </td>
               </tr>
@@ -76,6 +87,9 @@ export const FillsTable = memo(function FillsTable({ fills }: FillsTableProps) {
                   </td>
                   <td className="py-3 px-2 text-right text-white font-mono">
                     ${formatPrice(fill.price)}
+                  </td>
+                  <td className="py-3 px-2 text-right text-white font-mono">
+                    ${formatValue(fill.size, fill.price)}
                   </td>
                   <td className="py-3 px-2 text-right font-mono">
                     <span

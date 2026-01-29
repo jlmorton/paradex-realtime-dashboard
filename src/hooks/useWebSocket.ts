@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { Fill, Order, Position, DashboardState } from '../types/paradex';
+import type { Fill, Order, Position, DashboardState, VolumeDataPoint } from '../types/paradex';
 
 const WS_URL = 'wss://ws.api.prod.paradex.trade/v1';
 const REST_API_URL = 'https://api.prod.paradex.trade/v1';
@@ -62,7 +62,7 @@ interface WSMessage {
 interface PendingUpdates {
   fills: Fill[];
   pnlPoints: { time: number; value: number }[];
-  volumePoints: { time: number; value: number }[];
+  volumePoints: VolumeDataPoint[];
   equityPoints: { time: number; value: number }[];
   orderPoints: { time: number; value: number }[];
   realizedPnLDelta: number;
@@ -73,6 +73,7 @@ interface PendingUpdates {
   unrealizedPnL: number | null;
   positionsChanged: boolean;
   ordersChanged: boolean;
+  lastOrderTimes: Map<string, number>; // market -> timestamp
 }
 
 function createEmptyPendingUpdates(): PendingUpdates {
@@ -90,6 +91,7 @@ function createEmptyPendingUpdates(): PendingUpdates {
     unrealizedPnL: null,
     positionsChanged: false,
     ordersChanged: false,
+    lastOrderTimes: new Map(),
   };
 }
 
@@ -117,12 +119,15 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
     recentFills: [],
     positions: [],
     openOrders: new Map(),
+    lastOrderTimeByMarket: new Map(),
   });
 
   // Track positions for aggregating P&L (internal ref for quick lookup)
   const positionsRef = useRef<Map<string, WSPosition>>(new Map());
   // Track open orders by market for showing exit prices
   const openOrdersRef = useRef<Map<string, Order>>(new Map());
+  // Track last order time per market
+  const lastOrderTimeRef = useRef<Map<string, number>>(new Map());
 
   // Batched updates
   const pendingUpdatesRef = useRef<PendingUpdates>(createEmptyPendingUpdates());
@@ -153,7 +158,8 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
       pending.equity === null &&
       pending.unrealizedPnL === null &&
       !pending.positionsChanged &&
-      !pending.ordersChanged
+      !pending.ordersChanged &&
+      pending.lastOrderTimes.size === 0
     ) {
       return;
     }
@@ -218,6 +224,9 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
           : prev.ordersHistory,
         positions: newPositions,
         openOrders: pending.ordersChanged ? new Map(openOrdersRef.current) : prev.openOrders,
+        lastOrderTimeByMarket: pending.lastOrderTimes.size > 0
+          ? new Map([...prev.lastOrderTimeByMarket, ...lastOrderTimeRef.current])
+          : prev.lastOrderTimeByMarket,
       };
     });
 
@@ -246,7 +255,7 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
     pending.realizedPnLDelta += fillRealizedPnL;
     pending.feesDelta += fillFee;
     pending.volumeDelta += fillVolume;
-    pending.volumePoints.push({ time: now, value: fillVolume });
+    pending.volumePoints.push({ time: now, value: fillVolume, market: fill.market });
 
     // Calculate new total P&L for chart
     const currentState = stateRef.current;
@@ -262,6 +271,11 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
   const handleOrder = useCallback((order: Order) => {
     log('Processing order:', order.status, order);
     const pending = pendingUpdatesRef.current;
+
+    // Track last order time for this market (for all order statuses)
+    const orderTime = order.updated_at || order.created_at;
+    lastOrderTimeRef.current.set(order.market, orderTime);
+    pending.lastOrderTimes.set(order.market, orderTime);
 
     if (order.status === 'NEW' || order.status === 'OPEN') {
       openOrdersRef.current.set(order.market, order);

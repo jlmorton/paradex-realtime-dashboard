@@ -130,6 +130,7 @@ function App() {
             <PositionsTable
               positions={state.positions}
               openOrders={state.openOrders}
+              lastOrderTimeByMarket={state.lastOrderTimeByMarket}
             />
 
             {/* Charts */}
