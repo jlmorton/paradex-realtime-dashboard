@@ -16,25 +16,34 @@ interface VolumeChartProps {
   data: VolumeDataPoint[];
 }
 
-// Color palette for different markets
+// Color palette for different markets - high contrast, easily distinguishable
 const MARKET_COLORS: Record<string, string> = {
-  'BTC-USD-PERP': '#f7931a',
-  'ETH-USD-PERP': '#627eea',
-  'SOL-USD-PERP': '#9945ff',
-  'AVAX-USD-PERP': '#e84142',
-  'ARB-USD-PERP': '#28a0f0',
-  'OP-USD-PERP': '#ff0420',
-  'DOGE-USD-PERP': '#c2a633',
-  'LINK-USD-PERP': '#2a5ada',
-  'MATIC-USD-PERP': '#8247e5',
-  'BNB-USD-PERP': '#f3ba2f',
-  'XRP-USD-PERP': '#00aae4',
-  'PAXG-USD-PERP': '#e4b34d',
+  'BTC-USD-PERP': '#f7931a',  // Bitcoin orange
+  'ETH-USD-PERP': '#3b82f6',  // Bright blue
+  'SOL-USD-PERP': '#a855f7',  // Purple
+  'AVAX-USD-PERP': '#ef4444',  // Red
+  'ARB-USD-PERP': '#06b6d4',  // Cyan
+  'OP-USD-PERP': '#ec4899',   // Pink
+  'DOGE-USD-PERP': '#fbbf24', // Yellow
+  'LINK-USD-PERP': '#14b8a6', // Teal
+  'MATIC-USD-PERP': '#8b5cf6', // Violet
+  'BNB-USD-PERP': '#f59e0b',  // Amber
+  'XRP-USD-PERP': '#64748b',  // Slate
+  'PAXG-USD-PERP': '#d4af37', // Gold
 };
 
+// Fallback colors with maximum visual distinction
 const DEFAULT_COLORS = [
-  '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899',
-  '#f43f5e', '#f97316', '#eab308', '#84cc16', '#22c55e',
+  '#ef4444', // Red
+  '#3b82f6', // Blue
+  '#22c55e', // Green
+  '#f59e0b', // Amber
+  '#a855f7', // Purple
+  '#06b6d4', // Cyan
+  '#ec4899', // Pink
+  '#84cc16', // Lime
+  '#f97316', // Orange
+  '#64748b', // Slate
 ];
 
 function getMarketColor(market: string, index: number): string {
