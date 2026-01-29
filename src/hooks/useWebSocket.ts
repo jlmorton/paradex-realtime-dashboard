@@ -333,29 +333,35 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
     if (order.status === 'NEW' || order.status === 'OPEN') {
       openOrdersRef.current.set(order.market, order);
       pending.ordersChanged = true;
-      pending.newOrdersCount++;
-      pending.orderPoints.push({ time: order.created_at, value: 0 }); // Value recalculated on flush
 
-      // Track in allOpenOrders
+      // Track in allOpenOrders - only count as new if we haven't seen this order before
       if (!allOpenOrdersRef.current.has(order.market)) {
         allOpenOrdersRef.current.set(order.market, new Map());
       }
-      allOpenOrdersRef.current.get(order.market)!.set(order.id, order);
+      const marketOrders = allOpenOrdersRef.current.get(order.market)!;
+      const isNewOrder = !marketOrders.has(order.id);
+      marketOrders.set(order.id, order);
       pending.allOrdersChanged = true;
 
-      // Update per-market order count
-      const stats = marketStatsRef.current.get(order.market) || {
-        market: order.market,
-        realizedPnL: 0,
-        unrealizedPnL: 0,
-        fees: 0,
-        volume: 0,
-        orderCount: 0,
-        fillCount: 0,
-      };
-      stats.orderCount += 1;
-      marketStatsRef.current.set(order.market, stats);
-      pending.marketStatsChanged = true;
+      // Only increment counts for actually new orders (not NEW->OPEN transitions)
+      if (isNewOrder) {
+        pending.newOrdersCount++;
+        pending.orderPoints.push({ time: order.created_at, value: 0 }); // Value recalculated on flush
+
+        // Update per-market order count
+        const stats = marketStatsRef.current.get(order.market) || {
+          market: order.market,
+          realizedPnL: 0,
+          unrealizedPnL: 0,
+          fees: 0,
+          volume: 0,
+          orderCount: 0,
+          fillCount: 0,
+        };
+        stats.orderCount += 1;
+        marketStatsRef.current.set(order.market, stats);
+        pending.marketStatsChanged = true;
+      }
 
       scheduleUpdate();
     } else if (order.status === 'CLOSED' || order.status === 'CANCELED' || order.status === 'REJECTED') {
@@ -605,6 +611,10 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
 
       log('Fetched open orders:', orders.length);
 
+      // Clear existing orders before populating with fresh data
+      openOrdersRef.current.clear();
+      allOpenOrdersRef.current.clear();
+
       // Store orders by market (most recent per market) and all orders
       orders.forEach(order => {
         const existing = openOrdersRef.current.get(order.market);
@@ -736,9 +746,18 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
       }
     }, 10000);
 
+    // Periodic sync of orders to catch any missed cancellation messages
+    const orderSync = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN && jwtTokenRef.current) {
+        log('Syncing orders...');
+        fetchInitialOrders(jwtTokenRef.current);
+      }
+    }, 30000); // Sync every 30 seconds
+
     return () => {
       log('Closing WebSocket...');
       clearInterval(heartbeat);
+      clearInterval(orderSync);
       ws.close();
       wsRef.current = null;
     };
