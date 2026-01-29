@@ -92,40 +92,59 @@ export function useDemoSimulation() {
           marketConfig.tickSize
         );
 
-        // Randomly place new orders (60% chance per tick per market)
-        if (Math.random() < 0.6) {
-          const side = Math.random() < 0.5 ? 'BUY' : 'SELL';
-          // Place orders closer to mid price so they cross more often
-          const offset = randomBetween(0.0005, 0.008) * marketState.midPrice;
-          const price = roundToTick(
-            side === 'BUY' ? marketState.midPrice - offset : marketState.midPrice + offset,
-            marketConfig.tickSize
-          );
-          const size = roundToTick(
-            marketConfig.minSize * randomBetween(1, 5),
-            marketConfig.minSize
-          );
+        // Determine which side to place orders on based on position
+        // If we have a position, only place orders on the opposite side (exit orders)
+        let allowedSide: 'BUY' | 'SELL' | 'BOTH' = 'BOTH';
+        if (marketState.position) {
+          allowedSide = marketState.position.side === 'LONG' ? 'SELL' : 'BUY';
+        }
 
-          const order: Order = {
-            id: generateOrderId(),
-            market: marketConfig.symbol,
-            side,
-            type: 'LIMIT',
-            size: size.toString(),
-            price: price.toString(),
-            status: 'OPEN',
-            created_at: now,
-          };
-
-          if (side === 'BUY') {
-            marketState.buyOrders.push(order);
+        // Randomly place new orders (50% chance per tick per market)
+        // Max 3 orders per side
+        const maxOrdersPerSide = 3;
+        if (Math.random() < 0.5) {
+          let side: 'BUY' | 'SELL';
+          if (allowedSide === 'BOTH') {
+            side = Math.random() < 0.5 ? 'BUY' : 'SELL';
           } else {
-            marketState.sellOrders.push(order);
+            side = allowedSide;
           }
 
-          newOrdersCreated++;
-          stats.orderCount++;
-          newLastOrderTimes.set(marketConfig.symbol, now);
+          // Check if we already have max orders on this side
+          const currentCount = side === 'BUY' ? marketState.buyOrders.length : marketState.sellOrders.length;
+          if (currentCount < maxOrdersPerSide) {
+            // Place orders closer to mid price so they cross more often
+            const offset = randomBetween(0.0005, 0.008) * marketState.midPrice;
+            const price = roundToTick(
+              side === 'BUY' ? marketState.midPrice - offset : marketState.midPrice + offset,
+              marketConfig.tickSize
+            );
+            const size = roundToTick(
+              marketConfig.minSize * randomBetween(1, 5),
+              marketConfig.minSize
+            );
+
+            const order: Order = {
+              id: generateOrderId(),
+              market: marketConfig.symbol,
+              side,
+              type: 'LIMIT',
+              size: size.toString(),
+              price: price.toString(),
+              status: 'OPEN',
+              created_at: now,
+            };
+
+            if (side === 'BUY') {
+              marketState.buyOrders.push(order);
+            } else {
+              marketState.sellOrders.push(order);
+            }
+
+            newOrdersCreated++;
+            stats.orderCount++;
+            newLastOrderTimes.set(marketConfig.symbol, now);
+          }
         }
 
         // Check for fills (orders that cross the mid price)
@@ -280,13 +299,22 @@ export function useDemoSimulation() {
           newAllOpenOrders.set(marketConfig.symbol, allOrders);
         }
 
-        // Randomly cancel old orders (10% chance)
-        if (Math.random() < 0.1) {
-          if (marketState.buyOrders.length > 3) {
+        // Randomly cancel old orders (20% chance) - keep max 3 per side
+        if (Math.random() < 0.2) {
+          if (marketState.buyOrders.length > 2) {
             marketState.buyOrders.shift();
           }
-          if (marketState.sellOrders.length > 3) {
+          if (marketState.sellOrders.length > 2) {
             marketState.sellOrders.shift();
+          }
+        }
+
+        // Clear orders on the wrong side if we have a position
+        if (marketState.position) {
+          if (marketState.position.side === 'LONG') {
+            marketState.buyOrders = []; // Clear buy orders when long
+          } else {
+            marketState.sellOrders = []; // Clear sell orders when short
           }
         }
       });
@@ -340,13 +368,12 @@ export function useDemoSimulation() {
 
   // Start simulation
   useEffect(() => {
-    // Initial orders
+    // Initial orders - place 2 per side
     MARKETS.forEach(marketConfig => {
       const marketState = marketStatesRef.current.get(marketConfig.symbol)!;
-      // Place some initial orders
-      for (let i = 0; i < 3; i++) {
-        const buyOffset = randomBetween(0.005, 0.02) * marketConfig.basePrice * (i + 1);
-        const sellOffset = randomBetween(0.005, 0.02) * marketConfig.basePrice * (i + 1);
+      for (let i = 0; i < 2; i++) {
+        const buyOffset = randomBetween(0.005, 0.015) * marketConfig.basePrice * (i + 1);
+        const sellOffset = randomBetween(0.005, 0.015) * marketConfig.basePrice * (i + 1);
 
         marketState.buyOrders.push({
           id: generateOrderId(),

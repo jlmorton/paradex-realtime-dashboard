@@ -208,7 +208,7 @@ export const OrderTiers = memo(function OrderTiers({ allOpenOrders, marketConfig
         {marketSummaries.map((summary) => (
           <div
             key={summary.market}
-            className={`bg-paradex-dark border rounded-lg px-3 py-2 min-w-[160px] h-[220px] flex flex-col ${
+            className={`bg-paradex-dark border rounded-lg px-3 py-2 min-w-[160px] h-[260px] flex flex-col ${
               summary.hasOrders ? 'border-paradex-border' : 'border-paradex-border/50 opacity-60'
             }`}
           >
