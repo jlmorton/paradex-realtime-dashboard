@@ -1,11 +1,15 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import type { Fill } from '../types/paradex';
 
 interface FillsTableProps {
   fills: Fill[];
 }
 
+const DISPLAY_OPTIONS = [25, 50, 100, 250, 500, 1000];
+
 export const FillsTable = memo(function FillsTable({ fills }: FillsTableProps) {
+  const [displayLimit, setDisplayLimit] = useState(25);
+
   const formatTime = (timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString();
   };
@@ -36,9 +40,33 @@ export const FillsTable = memo(function FillsTable({ fills }: FillsTableProps) {
     });
   };
 
+  const displayedFills = fills.slice(0, displayLimit);
+  const totalFills = fills.length;
+
   return (
     <div className="bg-paradex-card border border-paradex-border rounded-lg p-6">
-      <h3 className="text-white font-medium mb-4">Recent Fills</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-white font-medium">Recent Fills</h3>
+        <div className="flex items-center gap-2">
+          <span className="text-gray-400 text-sm">Show:</span>
+          <select
+            value={displayLimit}
+            onChange={(e) => setDisplayLimit(Number(e.target.value))}
+            className="bg-paradex-dark border border-paradex-border rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-purple-500"
+          >
+            {DISPLAY_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+          {totalFills > 0 && (
+            <span className="text-gray-500 text-sm">
+              ({Math.min(displayLimit, totalFills)} of {totalFills})
+            </span>
+          )}
+        </div>
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
@@ -53,14 +81,14 @@ export const FillsTable = memo(function FillsTable({ fills }: FillsTableProps) {
             </tr>
           </thead>
           <tbody>
-            {fills.length === 0 ? (
+            {displayedFills.length === 0 ? (
               <tr>
                 <td colSpan={7} className="text-center py-8 text-gray-500">
                   No fills yet
                 </td>
               </tr>
             ) : (
-              fills.map((fill) => (
+              displayedFills.map((fill) => (
                 <tr
                   key={fill.id}
                   className="border-b border-paradex-border hover:bg-paradex-border/30 transition-colors"

@@ -230,7 +230,7 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
         equity: newEquity,
         unrealizedPnL: newUnrealizedPnL,
         recentFills: pending.fills.length > 0
-          ? [...pending.fills.reverse(), ...prev.recentFills].slice(0, 100)
+          ? [...pending.fills.reverse(), ...prev.recentFills].slice(0, 1000)
           : prev.recentFills,
         pnlHistory: limitArray(prev.pnlHistory, pending.pnlPoints, MAX_HISTORY_POINTS),
         volumeHistory: limitArray(prev.volumeHistory, pending.volumePoints, MAX_HISTORY_POINTS),
