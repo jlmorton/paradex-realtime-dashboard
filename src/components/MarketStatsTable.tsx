@@ -1,5 +1,6 @@
 import { memo, useMemo } from 'react';
 import type { MarketStats } from '../types/paradex';
+import { MarketIcon } from './MarketIcon';
 
 interface MarketStatsTableProps {
   marketStats: Map<string, MarketStats>;
@@ -95,6 +96,7 @@ export const MarketStatsTable = memo(function MarketStatsTable({ marketStats }: 
                 >
                   <td className="py-3 pr-4">
                     <div className="flex items-center gap-2">
+                      <MarketIcon symbol={getShortName(stat.market)} size={18} />
                       <span className="text-white font-medium">{getShortName(stat.market)}</span>
                       <span className="text-xs text-gray-500">{stat.market}</span>
                     </div>
