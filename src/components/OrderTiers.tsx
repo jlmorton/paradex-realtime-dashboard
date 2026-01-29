@@ -10,16 +10,11 @@ interface MarketOrderSummary {
   shortName: string;
   buyOrders: Order[];
   sellOrders: Order[];
-  buyTiers: number;
-  sellTiers: number;
-  buySize: number;
-  sellSize: number;
-  buySpread: { min: number; max: number } | null;
-  sellSpread: { min: number; max: number } | null;
   hasOrders: boolean;
 }
 
 const MARKET_TIMEOUT_MS = 60000; // 60 seconds before removing empty markets
+const MAX_TIERS_SHOWN = 5;
 
 export const OrderTiers = memo(function OrderTiers({ allOpenOrders }: OrderTiersProps) {
   // Track when each market was last seen with orders
@@ -79,23 +74,18 @@ export const OrderTiers = memo(function OrderTiers({ allOpenOrders }: OrderTiers
 
     marketsToShow.forEach(market => {
       const orders = allOpenOrders.get(market) || [];
-      const buyOrders = orders.filter(o => o.side === 'BUY');
-      const sellOrders = orders.filter(o => o.side === 'SELL');
-
-      const buyPrices = buyOrders.map(o => parseFloat(o.price));
-      const sellPrices = sellOrders.map(o => parseFloat(o.price));
+      const buyOrders = orders
+        .filter(o => o.side === 'BUY')
+        .sort((a, b) => parseFloat(b.price) - parseFloat(a.price)); // Highest first
+      const sellOrders = orders
+        .filter(o => o.side === 'SELL')
+        .sort((a, b) => parseFloat(a.price) - parseFloat(b.price)); // Lowest first
 
       summaries.push({
         market,
         shortName: market.split('-')[0],
         buyOrders,
         sellOrders,
-        buyTiers: buyOrders.length,
-        sellTiers: sellOrders.length,
-        buySize: buyOrders.reduce((sum, o) => sum + parseFloat(o.remaining_size || o.size), 0),
-        sellSize: sellOrders.reduce((sum, o) => sum + parseFloat(o.remaining_size || o.size), 0),
-        buySpread: buyPrices.length > 0 ? { min: Math.min(...buyPrices), max: Math.max(...buyPrices) } : null,
-        sellSpread: sellPrices.length > 0 ? { min: Math.min(...sellPrices), max: Math.max(...sellPrices) } : null,
         hasOrders: orders.length > 0,
       });
     });
@@ -108,14 +98,53 @@ export const OrderTiers = memo(function OrderTiers({ allOpenOrders }: OrderTiers
     if (value >= 1000) {
       return value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     }
-    return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+    if (value >= 1) {
+      return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    return value.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
   };
 
   const formatSize = (value: number) => {
     if (value >= 1) {
       return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
+    if (value >= 0.01) {
+      return value.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+    }
     return value.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+  };
+
+  const renderOrderList = (orders: Order[], side: 'BUY' | 'SELL') => {
+    if (orders.length === 0) return null;
+
+    const visibleOrders = orders.slice(0, MAX_TIERS_SHOWN);
+    const hiddenCount = orders.length - MAX_TIERS_SHOWN;
+    const colorClass = side === 'BUY' ? 'text-paradex-green' : 'text-paradex-red';
+
+    return (
+      <div className="mb-1.5 last:mb-0">
+        <div className={`text-[10px] font-medium ${colorClass} mb-0.5`}>
+          {side === 'BUY' ? 'BIDS' : 'ASKS'}
+        </div>
+        <div className="space-y-px">
+          {visibleOrders.map((order) => {
+            const price = parseFloat(order.price);
+            const size = parseFloat(order.remaining_size || order.size);
+            return (
+              <div key={order.id} className="flex justify-between text-[11px] leading-tight">
+                <span className="text-gray-400">${formatPrice(price)}</span>
+                <span className="text-gray-300 ml-2">{formatSize(size)}</span>
+              </div>
+            );
+          })}
+          {hiddenCount > 0 && (
+            <div className="text-[10px] text-gray-500 italic">
+              +{hiddenCount} more
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   if (marketSummaries.length === 0) {
@@ -134,51 +163,17 @@ export const OrderTiers = memo(function OrderTiers({ allOpenOrders }: OrderTiers
         {marketSummaries.map((summary) => (
           <div
             key={summary.market}
-            className={`bg-paradex-dark border rounded-lg px-3 py-2 min-w-[180px] ${
+            className={`bg-paradex-dark border rounded-lg px-3 py-2 min-w-[160px] ${
               summary.hasOrders ? 'border-paradex-border' : 'border-paradex-border/50 opacity-60'
             }`}
           >
-            <div className="text-white font-medium text-sm mb-1">{summary.shortName}</div>
+            <div className="text-white font-medium text-sm mb-2">{summary.shortName}</div>
             {!summary.hasOrders ? (
               <div className="text-gray-500 text-xs">No orders</div>
             ) : (
-              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
-                {/* Buy side */}
-                {summary.buyTiers > 0 && (
-                  <>
-                    <div className="text-paradex-green">
-                      {summary.buyTiers} buy{summary.buyTiers > 1 ? 's' : ''}
-                    </div>
-                    <div className="text-gray-400 text-right">
-                      {formatSize(summary.buySize)}
-                    </div>
-                    <div className="text-gray-500 col-span-2">
-                      {summary.buySpread && (
-                        summary.buySpread.min === summary.buySpread.max
-                          ? `@ $${formatPrice(summary.buySpread.min)}`
-                          : `$${formatPrice(summary.buySpread.min)} - $${formatPrice(summary.buySpread.max)}`
-                      )}
-                    </div>
-                  </>
-                )}
-                {/* Sell side */}
-                {summary.sellTiers > 0 && (
-                  <>
-                    <div className="text-paradex-red">
-                      {summary.sellTiers} sell{summary.sellTiers > 1 ? 's' : ''}
-                    </div>
-                    <div className="text-gray-400 text-right">
-                      {formatSize(summary.sellSize)}
-                    </div>
-                    <div className="text-gray-500 col-span-2">
-                      {summary.sellSpread && (
-                        summary.sellSpread.min === summary.sellSpread.max
-                          ? `@ $${formatPrice(summary.sellSpread.min)}`
-                          : `$${formatPrice(summary.sellSpread.min)} - $${formatPrice(summary.sellSpread.max)}`
-                      )}
-                    </div>
-                  </>
-                )}
+              <div>
+                {renderOrderList(summary.sellOrders, 'SELL')}
+                {renderOrderList(summary.buyOrders, 'BUY')}
               </div>
             )}
           </div>
