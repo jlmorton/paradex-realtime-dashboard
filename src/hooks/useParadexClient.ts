@@ -1,9 +1,12 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Client, Config, Signer, type ParadexClient } from '@paradex/sdk';
 import { BrowserProvider } from 'ethers';
 import type { Account, TypedData } from 'starknet';
 
+const TOKEN_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
 const REST_API_URL = 'https://api.prod.paradex.trade/v1';
+const STORAGE_KEY = 'paradex_was_connected';
 
 type ConnectionStatus =
   | 'disconnected'
@@ -39,6 +42,11 @@ export function useParadexClient() {
     connectionStatus: 'disconnected',
     error: null,
   });
+
+  // Store credentials for token refresh
+  const starknetAccountRef = useRef<Account | null>(null);
+  const paradexAddressRef = useRef<string | null>(null);
+  const chainIdRef = useRef<string | null>(null);
 
   const connect = useCallback(async () => {
     setState(prev => ({ ...prev, isConnecting: true, connectionStatus: 'connecting_wallet', error: null }));
@@ -89,8 +97,16 @@ export function useParadexClient() {
       // Access internal account (the SDK exposes this via getAccount)
       const starknetAccount = (paradexProvider as unknown as { getAccount(): Account }).getAccount();
 
+      // Store credentials for token refresh
+      starknetAccountRef.current = starknetAccount;
+      paradexAddressRef.current = paradexAddress;
+      chainIdRef.current = config.paradexChainId;
+
       // Get JWT token via REST API authentication (use raw address, not padded)
       const jwtToken = await authenticateWithRestApi(paradexAddress, starknetAccount, config.paradexChainId);
+
+      // Remember that user was connected for auto-reconnect
+      localStorage.setItem(STORAGE_KEY, 'true');
 
       setState({
         client,
@@ -117,6 +133,11 @@ export function useParadexClient() {
   }, []);
 
   const disconnect = useCallback(() => {
+    // Clear auto-reconnect flag
+    localStorage.removeItem(STORAGE_KEY);
+    starknetAccountRef.current = null;
+    paradexAddressRef.current = null;
+    chainIdRef.current = null;
     setState({
       client: null,
       jwtToken: null,
@@ -127,6 +148,48 @@ export function useParadexClient() {
       error: null,
     });
   }, []);
+
+  const refreshToken = useCallback(async () => {
+    const starknetAccount = starknetAccountRef.current;
+    const paradexAddress = paradexAddressRef.current;
+    const chainId = chainIdRef.current;
+
+    if (!starknetAccount || !paradexAddress || !chainId) {
+      return;
+    }
+
+    try {
+      console.log('Refreshing JWT token...');
+      const newToken = await authenticateWithRestApi(paradexAddress, starknetAccount, chainId);
+      setState(prev => ({ ...prev, jwtToken: newToken }));
+      console.log('JWT token refreshed successfully');
+    } catch (err) {
+      console.error('Failed to refresh JWT token:', err);
+    }
+  }, []);
+
+  // Set up automatic token refresh
+  useEffect(() => {
+    if (state.connectionStatus !== 'connected') {
+      return;
+    }
+
+    const intervalId = setInterval(refreshToken, TOKEN_REFRESH_INTERVAL);
+    return () => clearInterval(intervalId);
+  }, [state.connectionStatus, refreshToken]);
+
+  // Auto-reconnect on page load if user was previously connected
+  useEffect(() => {
+    const wasConnected = localStorage.getItem(STORAGE_KEY);
+    if (wasConnected && state.connectionStatus === 'disconnected' && !state.isConnecting) {
+      console.log('Auto-reconnecting previously connected wallet...');
+      connect().catch((err) => {
+        console.error('Auto-reconnect failed:', err);
+        // Clear the flag if auto-reconnect fails (user may have revoked access)
+        localStorage.removeItem(STORAGE_KEY);
+      });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     ...state,

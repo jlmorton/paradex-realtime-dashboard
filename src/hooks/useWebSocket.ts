@@ -45,6 +45,7 @@ interface WSMessage {
 
 export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
   const wsRef = useRef<WebSocket | null>(null);
+  const jwtTokenRef = useRef<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [state, setState] = useState<DashboardState>({
     realizedPnL: 0,
@@ -236,11 +237,31 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
     });
   }, [sendMessage]);
 
+  // Re-authenticate when token refreshes (without reconnecting)
   useEffect(() => {
-    if (!jwtToken) {
+    // If already connected and we have a new token, just re-authenticate
+    if (jwtToken && wsRef.current?.readyState === WebSocket.OPEN) {
+      console.log('Re-authenticating WebSocket with refreshed token...');
+      wsRef.current.send(JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'auth',
+        params: { bearer: jwtToken },
+        id: 0,
+      }));
+    }
+    jwtTokenRef.current = jwtToken;
+  }, [jwtToken]);
+
+  useEffect(() => {
+    // Skip if we already have an active connection (token refresh is handled above)
+    if (wsRef.current?.readyState === WebSocket.OPEN ||
+        wsRef.current?.readyState === WebSocket.CONNECTING) {
       return;
     }
 
+    if (!jwtToken) {
+      return;
+    }
     console.log('Connecting to WebSocket...');
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
