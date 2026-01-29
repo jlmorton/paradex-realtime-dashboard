@@ -3,6 +3,7 @@ type ConnectionStatus =
   | 'connecting_wallet'
   | 'deriving_account'
   | 'authenticating'
+  | 'restoring_session'
   | 'connected';
 
 interface ConnectWalletProps {
@@ -21,6 +22,7 @@ const STATUS_MESSAGES: Record<ConnectionStatus, string> = {
   connecting_wallet: 'Connecting wallet...',
   deriving_account: 'Deriving Paradex account...',
   authenticating: 'Authenticating...',
+  restoring_session: 'Restoring session...',
   connected: '',
 };
 

@@ -1,19 +1,30 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Client, Config, Signer, type ParadexClient } from '@paradex/sdk';
 import { BrowserProvider } from 'ethers';
-import type { Account, TypedData } from 'starknet';
+import { Account, RpcProvider, type TypedData } from 'starknet';
 
 const TOKEN_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
 const REST_API_URL = 'https://api.prod.paradex.trade/v1';
-const STORAGE_KEY = 'paradex_was_connected';
+const SESSION_STORAGE_KEY = 'paradex_session';
 
 type ConnectionStatus =
   | 'disconnected'
   | 'connecting_wallet'
   | 'deriving_account'
   | 'authenticating'
+  | 'restoring_session'
   | 'connected';
+
+interface StoredSession {
+  privateKey: string;
+  paradexAddress: string;
+  ethAddress: string;
+  chainId: string;
+  rpcUrl: string;
+  jwtToken: string;
+  storedAt: number;
+}
 
 interface ParadexClientState {
   client: ParadexClient | null;
@@ -32,6 +43,16 @@ function padHex(hex: string): string {
   return '0x' + padded;
 }
 
+// Extract private key from Account's signer
+function getPrivateKey(account: Account): string | null {
+  try {
+    const signer = account.signer as { pk?: string };
+    return signer.pk || null;
+  } catch {
+    return null;
+  }
+}
+
 export function useParadexClient() {
   const [state, setState] = useState<ParadexClientState>({
     client: null,
@@ -47,6 +68,93 @@ export function useParadexClient() {
   const starknetAccountRef = useRef<Account | null>(null);
   const paradexAddressRef = useRef<string | null>(null);
   const chainIdRef = useRef<string | null>(null);
+
+  // Save session to localStorage
+  const saveSession = useCallback((session: StoredSession) => {
+    try {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+      console.log('Session saved to localStorage');
+    } catch (err) {
+      console.error('Failed to save session:', err);
+    }
+  }, []);
+
+  // Clear session from localStorage
+  const clearSession = useCallback(() => {
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    console.log('Session cleared from localStorage');
+  }, []);
+
+  // Restore session from localStorage
+  const restoreSession = useCallback(async (): Promise<boolean> => {
+    try {
+      const stored = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (!stored) {
+        return false;
+      }
+
+      const session: StoredSession = JSON.parse(stored);
+      console.log('Found stored session, restoring...');
+
+      setState(prev => ({ ...prev, isConnecting: true, connectionStatus: 'restoring_session', error: null }));
+
+      // Create RPC provider and Account from stored credentials
+      const provider = new RpcProvider({ nodeUrl: session.rpcUrl });
+      const account = new Account({
+        provider,
+        address: session.paradexAddress,
+        signer: session.privateKey,
+      });
+
+      // Store in refs for token refresh
+      starknetAccountRef.current = account;
+      paradexAddressRef.current = session.paradexAddress;
+      chainIdRef.current = session.chainId;
+
+      // Try using the stored JWT first
+      let jwtToken = session.jwtToken;
+
+      // If JWT is older than 20 hours, refresh it proactively
+      const jwtAge = Date.now() - session.storedAt;
+      const twentyHours = 20 * 60 * 60 * 1000;
+
+      if (jwtAge > twentyHours) {
+        console.log('Stored JWT is old, refreshing...');
+        try {
+          jwtToken = await authenticateWithRestApi(session.paradexAddress, account, session.chainId);
+          // Update stored session with new JWT
+          saveSession({ ...session, jwtToken, storedAt: Date.now() });
+        } catch (err) {
+          console.error('Failed to refresh JWT, using stored token:', err);
+        }
+      }
+
+      const displayAddress = padHex(session.paradexAddress);
+
+      setState({
+        client: null, // We don't have the full SDK client, but don't need it for the dashboard
+        jwtToken,
+        address: session.ethAddress,
+        paradexAddress: displayAddress,
+        isConnecting: false,
+        connectionStatus: 'connected',
+        error: null,
+      });
+
+      console.log('Session restored successfully');
+      return true;
+    } catch (err) {
+      console.error('Failed to restore session:', err);
+      clearSession();
+      setState(prev => ({
+        ...prev,
+        isConnecting: false,
+        connectionStatus: 'disconnected',
+        error: null,
+      }));
+      return false;
+    }
+  }, [saveSession, clearSession]);
 
   const connect = useCallback(async () => {
     setState(prev => ({ ...prev, isConnecting: true, connectionStatus: 'connecting_wallet', error: null }));
@@ -97,6 +205,12 @@ export function useParadexClient() {
       // Access internal account (the SDK exposes this via getAccount)
       const starknetAccount = (paradexProvider as unknown as { getAccount(): Account }).getAccount();
 
+      // Extract private key for session persistence
+      const privateKey = getPrivateKey(starknetAccount);
+      if (!privateKey) {
+        console.warn('Could not extract private key for session persistence');
+      }
+
       // Store credentials for token refresh
       starknetAccountRef.current = starknetAccount;
       paradexAddressRef.current = paradexAddress;
@@ -105,8 +219,18 @@ export function useParadexClient() {
       // Get JWT token via REST API authentication (use raw address, not padded)
       const jwtToken = await authenticateWithRestApi(paradexAddress, starknetAccount, config.paradexChainId);
 
-      // Remember that user was connected for auto-reconnect
-      localStorage.setItem(STORAGE_KEY, 'true');
+      // Save session to localStorage for persistence across page reloads
+      if (privateKey) {
+        saveSession({
+          privateKey,
+          paradexAddress,
+          ethAddress,
+          chainId: config.paradexChainId,
+          rpcUrl: config.paradexFullNodeRpcUrl,
+          jwtToken,
+          storedAt: Date.now(),
+        });
+      }
 
       setState({
         client,
@@ -130,11 +254,11 @@ export function useParadexClient() {
       }));
       throw err;
     }
-  }, []);
+  }, [saveSession]);
 
   const disconnect = useCallback(() => {
-    // Clear auto-reconnect flag
-    localStorage.removeItem(STORAGE_KEY);
+    // Clear stored session
+    clearSession();
     starknetAccountRef.current = null;
     paradexAddressRef.current = null;
     chainIdRef.current = null;
@@ -147,7 +271,7 @@ export function useParadexClient() {
       connectionStatus: 'disconnected',
       error: null,
     });
-  }, []);
+  }, [clearSession]);
 
   const refreshToken = useCallback(async () => {
     const starknetAccount = starknetAccountRef.current;
@@ -162,11 +286,19 @@ export function useParadexClient() {
       console.log('Refreshing JWT token...');
       const newToken = await authenticateWithRestApi(paradexAddress, starknetAccount, chainId);
       setState(prev => ({ ...prev, jwtToken: newToken }));
+
+      // Update stored session with new JWT
+      const stored = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (stored) {
+        const session: StoredSession = JSON.parse(stored);
+        saveSession({ ...session, jwtToken: newToken, storedAt: Date.now() });
+      }
+
       console.log('JWT token refreshed successfully');
     } catch (err) {
       console.error('Failed to refresh JWT token:', err);
     }
-  }, []);
+  }, [saveSession]);
 
   // Set up automatic token refresh
   useEffect(() => {
@@ -178,15 +310,13 @@ export function useParadexClient() {
     return () => clearInterval(intervalId);
   }, [state.connectionStatus, refreshToken]);
 
-  // Auto-reconnect on page load if user was previously connected
+  // Auto-restore session on page load
   useEffect(() => {
-    const wasConnected = localStorage.getItem(STORAGE_KEY);
-    if (wasConnected && state.connectionStatus === 'disconnected' && !state.isConnecting) {
-      console.log('Auto-reconnecting previously connected wallet...');
-      connect().catch((err) => {
-        console.error('Auto-reconnect failed:', err);
-        // Clear the flag if auto-reconnect fails (user may have revoked access)
-        localStorage.removeItem(STORAGE_KEY);
+    if (state.connectionStatus === 'disconnected' && !state.isConnecting) {
+      restoreSession().then(restored => {
+        if (!restored) {
+          console.log('No stored session found');
+        }
       });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
