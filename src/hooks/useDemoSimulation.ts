@@ -85,17 +85,18 @@ export function useDemoSimulation() {
         const marketState = marketStatesRef.current.get(marketConfig.symbol)!;
         const stats = statsRef.current.get(marketConfig.symbol)!;
 
-        // Update mid price with random walk
-        const priceChange = (Math.random() - 0.5) * marketConfig.volatility * 0.1;
+        // Update mid price with random walk (larger moves = more fills)
+        const priceChange = (Math.random() - 0.5) * marketConfig.volatility * 0.3;
         marketState.midPrice = roundToTick(
           marketState.midPrice + priceChange,
           marketConfig.tickSize
         );
 
-        // Randomly place new orders (30% chance per tick per market)
-        if (Math.random() < 0.3) {
+        // Randomly place new orders (60% chance per tick per market)
+        if (Math.random() < 0.6) {
           const side = Math.random() < 0.5 ? 'BUY' : 'SELL';
-          const offset = randomBetween(0.001, 0.02) * marketState.midPrice;
+          // Place orders closer to mid price so they cross more often
+          const offset = randomBetween(0.0005, 0.008) * marketState.midPrice;
           const price = roundToTick(
             side === 'BUY' ? marketState.midPrice - offset : marketState.midPrice + offset,
             marketConfig.tickSize
@@ -368,8 +369,8 @@ export function useDemoSimulation() {
       }
     });
 
-    // Run simulation every 500ms
-    intervalRef.current = setInterval(simulateTick, 500);
+    // Run simulation every 300ms for faster activity
+    intervalRef.current = setInterval(simulateTick, 300);
 
     return () => {
       if (intervalRef.current) {
