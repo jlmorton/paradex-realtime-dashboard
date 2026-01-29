@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useRef, useState, useEffect } from 'react';
 import type { Position, Order, MarketConfig } from '../types/paradex';
 import { formatPriceWithConfig, formatSizeWithConfig } from '../hooks/useMarketConfig';
 
@@ -10,7 +10,87 @@ interface PositionsTableProps {
   marketConfigs: Map<string, MarketConfig>;
 }
 
+interface CachedOrder {
+  order: Order;
+  removedAt: number | null; // null means currently active, timestamp means when it was removed
+}
+
+const EXIT_ORDER_CACHE_MS = 1000; // 1 second grace period before removing
+
 export const PositionsTable = memo(function PositionsTable({ positions, openOrders, lastOrderTimeByMarket, lastFillTimeByMarket, marketConfigs }: PositionsTableProps) {
+  // Cache for exit orders to prevent flashing during rapid cancel/create cycles
+  const exitOrderCacheRef = useRef<Map<string, CachedOrder>>(new Map());
+  const [, forceUpdate] = useState(0);
+
+  // Update cache and handle timeouts
+  useEffect(() => {
+    const cache = exitOrderCacheRef.current;
+    const now = Date.now();
+    const timeouts: NodeJS.Timeout[] = [];
+
+    positions.forEach((position) => {
+      const currentOrder = openOrders.get(position.market);
+      const isExitOrder = currentOrder && (
+        (position.side === 'LONG' && currentOrder.side === 'SELL') ||
+        (position.side === 'SHORT' && currentOrder.side === 'BUY')
+      );
+      const exitOrder = isExitOrder ? currentOrder : undefined;
+      const cached = cache.get(position.market);
+
+      if (exitOrder) {
+        // We have a current exit order - update cache immediately
+        cache.set(position.market, { order: exitOrder, removedAt: null });
+      } else if (cached && cached.removedAt === null) {
+        // Order just disappeared - mark removal time
+        cache.set(position.market, { ...cached, removedAt: now });
+        // Set timeout to clear after grace period
+        const timeout = setTimeout(() => {
+          const current = cache.get(position.market);
+          if (current && current.removedAt !== null && Date.now() - current.removedAt >= EXIT_ORDER_CACHE_MS) {
+            cache.delete(position.market);
+            forceUpdate(n => n + 1);
+          }
+        }, EXIT_ORDER_CACHE_MS + 50); // Small buffer
+        timeouts.push(timeout);
+      }
+    });
+
+    // Clean up markets that are no longer in positions
+    const positionMarkets = new Set(positions.map(p => p.market));
+    cache.forEach((_, market) => {
+      if (!positionMarkets.has(market)) {
+        cache.delete(market);
+      }
+    });
+
+    return () => {
+      timeouts.forEach(t => clearTimeout(t));
+    };
+  }, [positions, openOrders]);
+
+  // Get exit order with caching logic
+  const getDisplayExitOrder = (position: Position): Order | undefined => {
+    const currentOrder = openOrders.get(position.market);
+    const isExitOrder = currentOrder && (
+      (position.side === 'LONG' && currentOrder.side === 'SELL') ||
+      (position.side === 'SHORT' && currentOrder.side === 'BUY')
+    );
+
+    if (isExitOrder) {
+      return currentOrder;
+    }
+
+    // Check cache
+    const cached = exitOrderCacheRef.current.get(position.market);
+    if (cached && cached.removedAt !== null) {
+      // Only show cached order if within grace period
+      if (Date.now() - cached.removedAt < EXIT_ORDER_CACHE_MS) {
+        return cached.order;
+      }
+    }
+
+    return undefined;
+  };
   const formatPrice = (value: string | undefined, market: string) => {
     if (!value) return '-';
     return formatPriceWithConfig(value, market, marketConfigs);
@@ -69,17 +149,7 @@ export const PositionsTable = memo(function PositionsTable({ positions, openOrde
     return `${diffDays}d ago`;
   };
 
-  // Get exit order for a position (order on opposite side)
-  const getExitOrder = (position: Position): Order | undefined => {
-    const order = openOrders.get(position.market);
-    if (!order) return undefined;
-    // Exit order should be on opposite side
-    const isExitOrder =
-      (position.side === 'LONG' && order.side === 'SELL') ||
-      (position.side === 'SHORT' && order.side === 'BUY');
-    return isExitOrder ? order : undefined;
-  };
-
+  
   if (positions.length === 0) {
     return (
       <div className="bg-paradex-card border border-paradex-border rounded-lg p-6">
@@ -113,7 +183,7 @@ export const PositionsTable = memo(function PositionsTable({ positions, openOrde
               const unrealizedPnL = formatPnL(position.unrealized_pnl);
               const realizedPnL = formatPnL(position.realized_positional_pnl);
               const roi = formatROI(position.unrealized_pnl, position.cost);
-              const exitOrder = getExitOrder(position);
+              const exitOrder = getDisplayExitOrder(position);
 
               return (
                 <tr
