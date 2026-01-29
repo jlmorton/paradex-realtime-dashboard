@@ -43,8 +43,8 @@ export const OrderTiers = memo(function OrderTiers({ allOpenOrders }: OrderTiers
       });
     });
 
-    // Sort by total tiers descending
-    return summaries.sort((a, b) => (b.buyTiers + b.sellTiers) - (a.buyTiers + a.sellTiers));
+    // Sort alphabetically by market name for stable ordering
+    return summaries.sort((a, b) => a.market.localeCompare(b.market));
   }, [allOpenOrders]);
 
   const formatPrice = (value: number) => {
