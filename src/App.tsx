@@ -189,7 +189,7 @@ function App() {
             positions={state.positions}
             openOrders={state.openOrders}
             lastOrderTimeByMarket={state.lastOrderTimeByMarket}
-            lastPositionChangeByMarket={state.lastPositionChangeByMarket}
+            lastFillTimeByMarket={state.lastFillTimeByMarket}
           />
 
           {/* Charts */}

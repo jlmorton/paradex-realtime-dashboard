@@ -248,7 +248,7 @@ export const sampleDashboardState: DashboardState = {
     ['ETH-USD-PERP', Date.now() - 180000],
     ['SOL-USD-PERP', Date.now() - 300000],
   ]),
-  lastPositionChangeByMarket: new Map([
+  lastFillTimeByMarket: new Map([
     ['BTC-USD-PERP', Date.now() - 120000],
     ['ETH-USD-PERP', Date.now() - 300000],
     ['SOL-USD-PERP', Date.now() - 480000],

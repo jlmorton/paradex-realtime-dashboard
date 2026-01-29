@@ -75,7 +75,7 @@ interface PendingUpdates {
   ordersChanged: boolean;
   allOrdersChanged: boolean;
   lastOrderTimes: Map<string, number>; // market -> timestamp
-  lastPositionChangeTimes: Map<string, number>; // market -> timestamp
+  lastFillTimes: Map<string, number>; // market -> timestamp of last fill
   marketStatsChanged: boolean;
 }
 
@@ -96,7 +96,7 @@ function createEmptyPendingUpdates(): PendingUpdates {
     ordersChanged: false,
     allOrdersChanged: false,
     lastOrderTimes: new Map(),
-    lastPositionChangeTimes: new Map(),
+    lastFillTimes: new Map(),
     marketStatsChanged: false,
   };
 }
@@ -127,7 +127,7 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
     openOrders: new Map(),
     allOpenOrders: new Map(),
     lastOrderTimeByMarket: new Map(),
-    lastPositionChangeByMarket: new Map(),
+    lastFillTimeByMarket: new Map(),
     marketStats: new Map(),
   });
 
@@ -139,8 +139,8 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
   const allOpenOrdersRef = useRef<Map<string, Map<string, Order>>>(new Map()); // market -> orderId -> Order
   // Track last order time per market
   const lastOrderTimeRef = useRef<Map<string, number>>(new Map());
-  // Track last position change time per market
-  const lastPositionChangeRef = useRef<Map<string, number>>(new Map());
+  // Track last fill time per market (for position size changes)
+  const lastFillTimeRef = useRef<Map<string, number>>(new Map());
   // Track per-market statistics
   const marketStatsRef = useRef<Map<string, MarketStats>>(new Map());
 
@@ -176,7 +176,7 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
       !pending.ordersChanged &&
       !pending.allOrdersChanged &&
       pending.lastOrderTimes.size === 0 &&
-      pending.lastPositionChangeTimes.size === 0 &&
+      pending.lastFillTimes.size === 0 &&
       !pending.marketStatsChanged
     ) {
       return;
@@ -253,9 +253,9 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
         lastOrderTimeByMarket: pending.lastOrderTimes.size > 0
           ? new Map([...prev.lastOrderTimeByMarket, ...lastOrderTimeRef.current])
           : prev.lastOrderTimeByMarket,
-        lastPositionChangeByMarket: pending.lastPositionChangeTimes.size > 0
-          ? new Map([...prev.lastPositionChangeByMarket, ...lastPositionChangeRef.current])
-          : prev.lastPositionChangeByMarket,
+        lastFillTimeByMarket: pending.lastFillTimes.size > 0
+          ? new Map([...prev.lastFillTimeByMarket, ...lastFillTimeRef.current])
+          : prev.lastFillTimeByMarket,
         marketStats: pending.marketStatsChanged
           ? new Map(marketStatsRef.current)
           : prev.marketStats,
@@ -305,6 +305,10 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
     stats.fillCount += 1;
     marketStatsRef.current.set(fill.market, stats);
     pending.marketStatsChanged = true;
+
+    // Track last fill time for this market (position size changed)
+    lastFillTimeRef.current.set(fill.market, now);
+    pending.lastFillTimes.set(fill.market, now);
 
     // Calculate new total P&L for chart
     const currentState = stateRef.current;
@@ -378,11 +382,6 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
   const handlePosition = useCallback((wsPosition: WSPosition) => {
     log('Processing position:', wsPosition);
     const pending = pendingUpdatesRef.current;
-    const now = Date.now();
-
-    // Track position change time
-    lastPositionChangeRef.current.set(wsPosition.market, now);
-    pending.lastPositionChangeTimes.set(wsPosition.market, now);
 
     // Update ref for quick P&L calculation
     if (wsPosition.status === 'CLOSED' || parseFloat(wsPosition.size) === 0) {
@@ -420,6 +419,7 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
     pending.positionsChanged = true;
 
     // Add P&L point
+    const now = Date.now();
     const currentState = stateRef.current;
     const realizedPnL = currentState.realizedPnL + pending.realizedPnLDelta;
     const totalFees = currentState.totalFees + pending.feesDelta;

@@ -95,7 +95,7 @@ export interface DashboardState {
   openOrders: Map<string, Order>; // market -> most recent open order on opposite side
   allOpenOrders: Map<string, Order[]>; // market -> all open orders
   lastOrderTimeByMarket: Map<string, number>; // market -> timestamp of last order
-  lastPositionChangeByMarket: Map<string, number>; // market -> timestamp of last position update
+  lastFillTimeByMarket: Map<string, number>; // market -> timestamp of last fill (position size change)
   marketStats: Map<string, MarketStats>; // market -> aggregated stats
 }
 
