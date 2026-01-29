@@ -16,21 +16,40 @@ interface MarketOrderSummary {
 }
 
 const MARKET_TIMEOUT_MS = 60000; // 60 seconds before removing empty markets
+const ORDER_CACHE_MS = 1500; // 1.5 second grace period before showing "0 orders"
 const MAX_TIERS_SHOWN = 5;
+
+interface CachedOrders {
+  orders: Order[];
+  removedAt: number | null;
+}
 
 export const OrderTiers = memo(function OrderTiers({ allOpenOrders, marketConfigs }: OrderTiersProps) {
   // Track when each market was last seen with orders
   const lastSeenRef = useRef<Map<string, number>>(new Map());
+  // Cache for buy/sell orders per market to prevent flashing
+  const orderCacheRef = useRef<Map<string, CachedOrders>>(new Map());
   const [, forceUpdate] = useState(0);
 
   // Update last seen times and trigger cleanup
   useEffect(() => {
     const now = Date.now();
+    const timeouts: NodeJS.Timeout[] = [];
 
     // Update last seen for markets that have orders
     allOpenOrders.forEach((orders, market) => {
       if (orders.length > 0) {
         lastSeenRef.current.set(market, now);
+      }
+    });
+
+    // Set timeout to clear order caches after grace period
+    orderCacheRef.current.forEach((cached) => {
+      if (cached.removedAt !== null && now - cached.removedAt < ORDER_CACHE_MS) {
+        const timeout = setTimeout(() => {
+          forceUpdate(n => n + 1);
+        }, ORDER_CACHE_MS - (now - cached.removedAt) + 50);
+        timeouts.push(timeout);
       }
     });
 
@@ -46,12 +65,23 @@ export const OrderTiers = memo(function OrderTiers({ allOpenOrders, marketConfig
         }
       });
 
+      // Clean up expired order caches
+      orderCacheRef.current.forEach((cached, key) => {
+        if (cached.removedAt !== null && now - cached.removedAt >= ORDER_CACHE_MS) {
+          orderCacheRef.current.delete(key);
+          changed = true;
+        }
+      });
+
       if (changed) {
         forceUpdate(n => n + 1);
       }
     }, 5000); // Check every 5 seconds
 
-    return () => clearInterval(cleanup);
+    return () => {
+      clearInterval(cleanup);
+      timeouts.forEach(t => clearTimeout(t));
+    };
   }, [allOpenOrders]);
 
   const marketSummaries = useMemo(() => {
@@ -76,19 +106,51 @@ export const OrderTiers = memo(function OrderTiers({ allOpenOrders, marketConfig
 
     marketsToShow.forEach(market => {
       const orders = allOpenOrders.get(market) || [];
-      const buyOrders = orders
+      let buyOrders = orders
         .filter(o => o.side === 'BUY')
         .sort((a, b) => parseFloat(b.price) - parseFloat(a.price)); // Highest first
-      const sellOrders = orders
+      let sellOrders = orders
         .filter(o => o.side === 'SELL')
         .sort((a, b) => parseFloat(a.price) - parseFloat(b.price)); // Lowest first
+
+      // Cache logic for buy orders
+      const buyCacheKey = `${market}-BUY`;
+      const buyCached = orderCacheRef.current.get(buyCacheKey);
+      if (buyOrders.length > 0) {
+        orderCacheRef.current.set(buyCacheKey, { orders: buyOrders, removedAt: null });
+      } else if (buyCached) {
+        if (buyCached.removedAt === null) {
+          // Just disappeared - mark removal time
+          orderCacheRef.current.set(buyCacheKey, { ...buyCached, removedAt: now });
+          buyOrders = buyCached.orders;
+        } else if (now - buyCached.removedAt < ORDER_CACHE_MS) {
+          // Within grace period - show cached
+          buyOrders = buyCached.orders;
+        }
+      }
+
+      // Cache logic for sell orders
+      const sellCacheKey = `${market}-SELL`;
+      const sellCached = orderCacheRef.current.get(sellCacheKey);
+      if (sellOrders.length > 0) {
+        orderCacheRef.current.set(sellCacheKey, { orders: sellOrders, removedAt: null });
+      } else if (sellCached) {
+        if (sellCached.removedAt === null) {
+          // Just disappeared - mark removal time
+          orderCacheRef.current.set(sellCacheKey, { ...sellCached, removedAt: now });
+          sellOrders = sellCached.orders;
+        } else if (now - sellCached.removedAt < ORDER_CACHE_MS) {
+          // Within grace period - show cached
+          sellOrders = sellCached.orders;
+        }
+      }
 
       summaries.push({
         market,
         shortName: market.split('-')[0],
         buyOrders,
         sellOrders,
-        hasOrders: orders.length > 0,
+        hasOrders: orders.length > 0 || buyOrders.length > 0 || sellOrders.length > 0,
       });
     });
 

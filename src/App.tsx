@@ -214,6 +214,9 @@ function App() {
             marketConfigs={marketConfigs}
           />
 
+          {/* Open Orders by Market */}
+          <OrderTiers allOpenOrders={state.allOpenOrders} marketConfigs={marketConfigs} />
+
           {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <PnLChart data={state.pnlHistory} />
@@ -226,9 +229,6 @@ function App() {
 
           {/* Fills Table */}
           <FillsTable fills={state.recentFills} marketConfigs={marketConfigs} />
-
-          {/* Open Orders by Market */}
-          <OrderTiers allOpenOrders={state.allOpenOrders} marketConfigs={marketConfigs} />
 
           {/* Market Summary */}
           <MarketStatsTable marketStats={state.marketStats} />
