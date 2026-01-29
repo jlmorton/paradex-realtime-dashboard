@@ -97,34 +97,35 @@ export const OrderTiers = memo(function OrderTiers({ allOpenOrders, marketConfig
   }, [allOpenOrders]);
 
   const renderOrderList = useCallback((orders: Order[], side: 'BUY' | 'SELL', market: string) => {
-    if (orders.length === 0) return null;
-
     const visibleOrders = orders.slice(0, MAX_TIERS_SHOWN);
     const hiddenCount = orders.length - MAX_TIERS_SHOWN;
     const colorClass = side === 'BUY' ? 'text-paradex-green' : 'text-paradex-red';
+    const label = side === 'BUY' ? 'BIDS' : 'ASKS';
 
     return (
       <div className="mb-1.5 last:mb-0">
         <div className={`text-[10px] font-medium ${colorClass} mb-0.5`}>
-          {side === 'BUY' ? 'BIDS' : 'ASKS'}
+          {orders.length === 0 ? `0 ${label}` : label}
         </div>
-        <div className="space-y-px">
-          {visibleOrders.map((order) => {
-            const price = parseFloat(order.price);
-            const size = parseFloat(order.remaining_size || order.size);
-            return (
-              <div key={order.id} className="flex justify-between text-[11px] leading-tight">
-                <span className="text-gray-400">${formatPriceWithConfig(price, market, marketConfigs)}</span>
-                <span className="text-gray-300 ml-2">{formatSizeWithConfig(size, market, marketConfigs)}</span>
+        {orders.length > 0 && (
+          <div className="space-y-px">
+            {visibleOrders.map((order) => {
+              const price = parseFloat(order.price);
+              const size = parseFloat(order.remaining_size || order.size);
+              return (
+                <div key={order.id} className="flex justify-between text-[11px] leading-tight">
+                  <span className="text-gray-400">${formatPriceWithConfig(price, market, marketConfigs)}</span>
+                  <span className="text-gray-300 ml-2">{formatSizeWithConfig(size, market, marketConfigs)}</span>
+                </div>
+              );
+            })}
+            {hiddenCount > 0 && (
+              <div className="text-[10px] text-gray-500 italic">
+                +{hiddenCount} more
               </div>
-            );
-          })}
-          {hiddenCount > 0 && (
-            <div className="text-[10px] text-gray-500 italic">
-              +{hiddenCount} more
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     );
   }, [marketConfigs]);
