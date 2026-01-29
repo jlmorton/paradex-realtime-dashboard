@@ -103,7 +103,7 @@ export const OrderTiers = memo(function OrderTiers({ allOpenOrders, marketConfig
     const label = side === 'BUY' ? 'BIDS' : 'ASKS';
 
     return (
-      <div className="mb-1.5 last:mb-0">
+      <div>
         <div className={`text-[10px] font-medium ${colorClass} mb-0.5`}>
           {orders.length === 0 ? `0 ${label}` : label}
         </div>
@@ -146,17 +146,21 @@ export const OrderTiers = memo(function OrderTiers({ allOpenOrders, marketConfig
         {marketSummaries.map((summary) => (
           <div
             key={summary.market}
-            className={`bg-paradex-dark border rounded-lg px-3 py-2 min-w-[160px] min-h-[220px] ${
+            className={`bg-paradex-dark border rounded-lg px-3 py-2 min-w-[160px] h-[220px] flex flex-col ${
               summary.hasOrders ? 'border-paradex-border' : 'border-paradex-border/50 opacity-60'
             }`}
           >
-            <div className="text-white font-medium text-sm mb-2">{summary.shortName}</div>
+            <div className="text-white font-medium text-sm mb-1">{summary.shortName}</div>
             {!summary.hasOrders ? (
               <div className="text-gray-500 text-xs">No orders</div>
             ) : (
-              <div>
-                {renderOrderList(summary.sellOrders, 'SELL', summary.market)}
-                {renderOrderList(summary.buyOrders, 'BUY', summary.market)}
+              <div className="flex-1 flex flex-col">
+                <div className="h-1/2">
+                  {renderOrderList(summary.sellOrders, 'SELL', summary.market)}
+                </div>
+                <div className="h-1/2">
+                  {renderOrderList(summary.buyOrders, 'BUY', summary.market)}
+                </div>
               </div>
             )}
           </div>
