@@ -9,11 +9,11 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import type { OrderDataPoint } from '../types/paradex';
+import type { OrderBucket } from '../types/paradex';
 import { MarketIcon } from './MarketIcon';
 
 interface OrdersChartProps {
-  data: OrderDataPoint[];
+  data: OrderBucket[];
 }
 
 // Colors for stacked bars - just cycle through by index
@@ -22,38 +22,26 @@ const COLORS = [
   '#a855f7', '#06b6d4', '#ec4899', '#84cc16', '#64748b',
 ];
 
-interface AggregatedData {
-  data: Record<string, number>[];
-  markets: string[];
-}
+export const OrdersChart = memo(function OrdersChart({ data }: OrdersChartProps) {
+  const formatTime = (timestamp: number) => {
+    return new Date(timestamp).toLocaleTimeString();
+  };
 
-// Aggregate order points into time buckets
-function aggregateByTime(data: OrderDataPoint[], bucketMs: number = 5000): AggregatedData {
-  if (data.length === 0) return { data: [], markets: [] };
+  // Convert buckets to chart format and collect all markets
+  const { chartData, markets } = useMemo(() => {
+    if (data.length === 0) return { chartData: [], markets: [] };
 
-  const buckets = new Map<number, Map<string, number>>();
-  const markets = new Set<string>();
+    const marketsSet = new Set<string>();
+    data.forEach(bucket => {
+      Object.keys(bucket.counts).forEach(market => marketsSet.add(market));
+    });
+    const markets = Array.from(marketsSet).sort();
 
-  data.forEach(point => {
-    const bucket = Math.floor(point.time / bucketMs) * bucketMs;
-    const baseMarket = point.market.split('-')[0];
-    markets.add(baseMarket);
-
-    if (!buckets.has(bucket)) {
-      buckets.set(bucket, new Map());
-    }
-    const marketCounts = buckets.get(bucket)!;
-    marketCounts.set(baseMarket, (marketCounts.get(baseMarket) || 0) + 1);
-  });
-
-  const sortedMarkets = Array.from(markets).sort();
-  const result = Array.from(buckets.entries())
-    .sort(([a], [b]) => a - b)
-    .map(([time, marketCounts]) => {
-      const entry: Record<string, number> = { time };
+    const chartData = data.map(bucket => {
+      const entry: Record<string, number> = { time: bucket.time };
       let total = 0;
-      sortedMarkets.forEach(market => {
-        const count = marketCounts.get(market) || 0;
+      markets.forEach(market => {
+        const count = bucket.counts[market] || 0;
         entry[market] = count;
         total += count;
       });
@@ -61,16 +49,7 @@ function aggregateByTime(data: OrderDataPoint[], bucketMs: number = 5000): Aggre
       return entry;
     });
 
-  return { data: result, markets: sortedMarkets };
-}
-
-export const OrdersChart = memo(function OrdersChart({ data }: OrdersChartProps) {
-  const formatTime = (timestamp: number) => {
-    return new Date(timestamp).toLocaleTimeString();
-  };
-
-  const { data: chartData, markets } = useMemo(() => {
-    return aggregateByTime(data, 3000);
+    return { chartData, markets };
   }, [data]);
 
   return (

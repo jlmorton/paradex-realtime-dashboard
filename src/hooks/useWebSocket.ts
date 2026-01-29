@@ -7,6 +7,7 @@ const REST_API_URL = 'https://api.prod.paradex.trade/v1';
 // Performance tuning
 const STATE_UPDATE_INTERVAL_MS = 100; // Batch state updates every 100ms
 const MAX_HISTORY_POINTS = 1000; // Limit chart data points
+const ORDER_BUCKET_MS = 5000; // 5 second buckets for orders chart
 const DEBUG = false; // Set to true to enable console logging
 
 interface UseWebSocketOptions {
@@ -64,7 +65,7 @@ interface PendingUpdates {
   pnlPoints: { time: number; value: number }[];
   volumePoints: VolumeDataPoint[];
   equityPoints: { time: number; value: number }[];
-  orderPoints: { time: number; market: string }[];
+  orderCounts: Record<string, number>; // market -> count for current batch
   realizedPnLDelta: number;
   feesDelta: number;
   volumeDelta: number;
@@ -85,7 +86,7 @@ function createEmptyPendingUpdates(): PendingUpdates {
     pnlPoints: [],
     volumePoints: [],
     equityPoints: [],
-    orderPoints: [],
+    orderCounts: {},
     realizedPnLDelta: 0,
     feesDelta: 0,
     volumeDelta: 0,
@@ -165,7 +166,7 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
       pending.pnlPoints.length === 0 &&
       pending.volumePoints.length === 0 &&
       pending.equityPoints.length === 0 &&
-      pending.orderPoints.length === 0 &&
+      Object.keys(pending.orderCounts).length === 0 &&
       pending.realizedPnLDelta === 0 &&
       pending.feesDelta === 0 &&
       pending.volumeDelta === 0 &&
@@ -235,9 +236,29 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
         pnlHistory: limitArray(prev.pnlHistory, pending.pnlPoints, MAX_HISTORY_POINTS),
         volumeHistory: limitArray(prev.volumeHistory, pending.volumePoints, MAX_HISTORY_POINTS),
         equityHistory: limitArray(prev.equityHistory, pending.equityPoints, MAX_HISTORY_POINTS),
-        ordersHistory: pending.orderPoints.length > 0
-          ? limitArray(prev.ordersHistory, pending.orderPoints, MAX_HISTORY_POINTS)
-          : prev.ordersHistory,
+        ordersHistory: (() => {
+          if (Object.keys(pending.orderCounts).length === 0) return prev.ordersHistory;
+
+          const now = Date.now();
+          const bucketTime = Math.floor(now / ORDER_BUCKET_MS) * ORDER_BUCKET_MS;
+          const history = [...prev.ordersHistory];
+
+          // Find or create the current bucket
+          const lastBucket = history[history.length - 1];
+          if (lastBucket && lastBucket.time === bucketTime) {
+            // Add to existing bucket
+            const updatedCounts = { ...lastBucket.counts };
+            for (const [market, count] of Object.entries(pending.orderCounts)) {
+              updatedCounts[market] = (updatedCounts[market] || 0) + count;
+            }
+            history[history.length - 1] = { time: bucketTime, counts: updatedCounts };
+          } else {
+            // Create new bucket
+            history.push({ time: bucketTime, counts: pending.orderCounts });
+          }
+
+          return history.slice(-MAX_HISTORY_POINTS);
+        })(),
         positions: newPositions,
         openOrders: pending.ordersChanged ? new Map(openOrdersRef.current) : prev.openOrders,
         allOpenOrders: pending.allOrdersChanged
@@ -344,7 +365,8 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
       // Only increment counts for actually new orders (not NEW->OPEN transitions)
       if (isNewOrder) {
         pending.newOrdersCount++;
-        pending.orderPoints.push({ time: order.created_at, market: order.market });
+        const baseMarket = order.market.split('-')[0];
+        pending.orderCounts[baseMarket] = (pending.orderCounts[baseMarket] || 0) + 1;
 
         // Update per-market order count
         const stats = marketStatsRef.current.get(order.market) || {

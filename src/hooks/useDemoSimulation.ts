@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { DashboardState, Fill, Position, Order, MarketStats, VolumeDataPoint, OrderDataPoint } from '../types/paradex';
+import type { DashboardState, Fill, Position, Order, MarketStats, VolumeDataPoint } from '../types/paradex';
+
+const ORDER_BUCKET_MS = 5000; // 5 second buckets
 
 // Market configurations
 const MARKETS = [
@@ -75,7 +77,7 @@ export function useDemoSimulation() {
       let newOrdersCreated = prev.ordersCreated;
       const newFills: Fill[] = [];
       const newVolumePoints: VolumeDataPoint[] = [];
-      const newOrderPoints: OrderDataPoint[] = [];
+      const orderCounts: Record<string, number> = {};
       const newPositions: Position[] = [];
       const newOpenOrders = new Map(prev.openOrders);
       const newAllOpenOrders = new Map<string, Order[]>();
@@ -145,7 +147,8 @@ export function useDemoSimulation() {
             newOrdersCreated++;
             stats.orderCount++;
             newLastOrderTimes.set(marketConfig.symbol, now);
-            newOrderPoints.push({ time: now, market: marketConfig.symbol });
+            const baseMarket = marketConfig.symbol.split('-')[0];
+            orderCounts[baseMarket] = (orderCounts[baseMarket] || 0) + 1;
           }
         }
 
@@ -340,10 +343,26 @@ export function useDemoSimulation() {
         ...prev.volumeHistory.slice(-maxHistory),
         ...newVolumePoints,
       ].slice(-maxHistory);
-      const newOrdersHistory = [
-        ...prev.ordersHistory.slice(-maxHistory),
-        ...newOrderPoints,
-      ].slice(-maxHistory);
+      // Update orders history with time buckets
+      const bucketTime = Math.floor(now / ORDER_BUCKET_MS) * ORDER_BUCKET_MS;
+      let newOrdersHistory = [...prev.ordersHistory];
+
+      // Find or create the current bucket
+      const lastBucket = newOrdersHistory[newOrdersHistory.length - 1];
+      if (lastBucket && lastBucket.time === bucketTime) {
+        // Add to existing bucket
+        const updatedCounts = { ...lastBucket.counts };
+        for (const [market, count] of Object.entries(orderCounts)) {
+          updatedCounts[market] = (updatedCounts[market] || 0) + count;
+        }
+        newOrdersHistory[newOrdersHistory.length - 1] = { time: bucketTime, counts: updatedCounts };
+      } else if (Object.keys(orderCounts).length > 0) {
+        // Create new bucket
+        newOrdersHistory.push({ time: bucketTime, counts: orderCounts });
+      }
+
+      // Keep only last N buckets
+      newOrdersHistory = newOrdersHistory.slice(-maxHistory);
 
       return {
         ...prev,

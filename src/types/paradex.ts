@@ -69,9 +69,10 @@ export interface VolumeDataPoint {
   market: string;
 }
 
-export interface OrderDataPoint {
+// Pre-aggregated time bucket for orders chart
+export interface OrderBucket {
   time: number;
-  market: string;
+  counts: Record<string, number>; // market -> count
 }
 
 export interface MarketStats {
@@ -93,7 +94,7 @@ export interface DashboardState {
   equity: number;
   pnlHistory: { time: number; value: number }[];
   volumeHistory: VolumeDataPoint[];
-  ordersHistory: OrderDataPoint[];
+  ordersHistory: OrderBucket[];
   equityHistory: { time: number; value: number }[];
   recentFills: Fill[];
   positions: Position[];
