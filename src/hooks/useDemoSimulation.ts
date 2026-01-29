@@ -291,8 +291,10 @@ export function useDemoSimulation() {
         }
       });
 
-      // Calculate total P&L
+      // Calculate total P&L and new equity
       const totalPnL = newRealizedPnL - newTotalFees + newUnrealizedPnL;
+      const baseEquity = 10000;
+      const newEquity = baseEquity + totalPnL;
 
       // Limit history arrays
       const maxHistory = 200;
@@ -302,7 +304,7 @@ export function useDemoSimulation() {
       ];
       const newEquityHistory = [
         ...prev.equityHistory.slice(-maxHistory + 1),
-        { time: now, value: prev.equity + totalPnL },
+        { time: now, value: newEquity },
       ];
       const newVolumeHistory = [
         ...prev.volumeHistory.slice(-maxHistory),
@@ -320,6 +322,7 @@ export function useDemoSimulation() {
         totalFees: newTotalFees,
         totalVolume: newTotalVolume,
         ordersCreated: newOrdersCreated,
+        equity: newEquity,
         pnlHistory: newPnlHistory,
         volumeHistory: newVolumeHistory,
         ordersHistory: newOrdersHistory,
