@@ -66,6 +66,21 @@ function App() {
   const totalPnL = state.realizedPnL - state.totalFees + state.unrealizedPnL;
   const pnlColor = totalPnL >= 0 ? 'text-paradex-green' : 'text-paradex-red';
 
+  // Calculate fills by market for subtitle
+  const fillsByMarket = state.recentFills.reduce((acc, fill) => {
+    const market = fill.market.split('-')[0]; // Get short name like "BTC"
+    acc[market] = (acc[market] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const topFillsMarkets = Object.entries(fillsByMarket)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([market, count]) => `${market}: ${count}`)
+    .join(' · ');
+
+  const totalFills = state.recentFills.length;
+
   return (
     <div className="min-h-screen bg-paradex-dark">
       {/* Header */}
@@ -160,7 +175,7 @@ function App() {
         {/* Dashboard Content */}
         <div className="space-y-6">
           {/* Metric Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
             <MetricCard
               label="Total P&L (incl. fees)"
               value={formatCurrency(totalPnL)}
@@ -180,6 +195,11 @@ function App() {
             <MetricCard
               label="Orders Created"
               value={state.ordersCreated.toString()}
+            />
+            <MetricCard
+              label="Fills"
+              value={totalFills.toString()}
+              subtitle={topFillsMarkets || undefined}
             />
           </div>
 
