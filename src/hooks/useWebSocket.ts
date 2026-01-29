@@ -74,6 +74,7 @@ interface PendingUpdates {
   positionsChanged: boolean;
   ordersChanged: boolean;
   lastOrderTimes: Map<string, number>; // market -> timestamp
+  lastPositionChangeTimes: Map<string, number>; // market -> timestamp
 }
 
 function createEmptyPendingUpdates(): PendingUpdates {
@@ -92,6 +93,7 @@ function createEmptyPendingUpdates(): PendingUpdates {
     positionsChanged: false,
     ordersChanged: false,
     lastOrderTimes: new Map(),
+    lastPositionChangeTimes: new Map(),
   };
 }
 
@@ -120,6 +122,7 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
     positions: [],
     openOrders: new Map(),
     lastOrderTimeByMarket: new Map(),
+    lastPositionChangeByMarket: new Map(),
   });
 
   // Track positions for aggregating P&L (internal ref for quick lookup)
@@ -128,6 +131,8 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
   const openOrdersRef = useRef<Map<string, Order>>(new Map());
   // Track last order time per market
   const lastOrderTimeRef = useRef<Map<string, number>>(new Map());
+  // Track last position change time per market
+  const lastPositionChangeRef = useRef<Map<string, number>>(new Map());
 
   // Batched updates
   const pendingUpdatesRef = useRef<PendingUpdates>(createEmptyPendingUpdates());
@@ -159,7 +164,8 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
       pending.unrealizedPnL === null &&
       !pending.positionsChanged &&
       !pending.ordersChanged &&
-      pending.lastOrderTimes.size === 0
+      pending.lastOrderTimes.size === 0 &&
+      pending.lastPositionChangeTimes.size === 0
     ) {
       return;
     }
@@ -227,6 +233,9 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
         lastOrderTimeByMarket: pending.lastOrderTimes.size > 0
           ? new Map([...prev.lastOrderTimeByMarket, ...lastOrderTimeRef.current])
           : prev.lastOrderTimeByMarket,
+        lastPositionChangeByMarket: pending.lastPositionChangeTimes.size > 0
+          ? new Map([...prev.lastPositionChangeByMarket, ...lastPositionChangeRef.current])
+          : prev.lastPositionChangeByMarket,
       };
     });
 
@@ -296,6 +305,11 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
   const handlePosition = useCallback((wsPosition: WSPosition) => {
     log('Processing position:', wsPosition);
     const pending = pendingUpdatesRef.current;
+    const now = Date.now();
+
+    // Track position change time
+    lastPositionChangeRef.current.set(wsPosition.market, now);
+    pending.lastPositionChangeTimes.set(wsPosition.market, now);
 
     // Update ref for quick P&L calculation
     if (wsPosition.status === 'CLOSED' || parseFloat(wsPosition.size) === 0) {
@@ -314,7 +328,6 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
     pending.positionsChanged = true;
 
     // Add P&L point
-    const now = Date.now();
     const currentState = stateRef.current;
     const realizedPnL = currentState.realizedPnL + pending.realizedPnLDelta;
     const totalFees = currentState.totalFees + pending.feesDelta;

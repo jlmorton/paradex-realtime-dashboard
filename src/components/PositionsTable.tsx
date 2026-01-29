@@ -5,9 +5,10 @@ interface PositionsTableProps {
   positions: Position[];
   openOrders: Map<string, Order>;
   lastOrderTimeByMarket: Map<string, number>;
+  lastPositionChangeByMarket: Map<string, number>;
 }
 
-export const PositionsTable = memo(function PositionsTable({ positions, openOrders, lastOrderTimeByMarket }: PositionsTableProps) {
+export const PositionsTable = memo(function PositionsTable({ positions, openOrders, lastOrderTimeByMarket, lastPositionChangeByMarket }: PositionsTableProps) {
   const formatPrice = (value: string | undefined) => {
     if (!value) return '-';
     const num = parseFloat(value);
@@ -107,6 +108,7 @@ export const PositionsTable = memo(function PositionsTable({ positions, openOrde
               <th className="pb-3 pr-4">Unrealized P&L</th>
               <th className="pb-3 pr-4">Realized P&L</th>
               <th className="pb-3 pr-4">Last Order</th>
+              <th className="pb-3 pr-4">Last Change</th>
             </tr>
           </thead>
           <tbody>
@@ -175,6 +177,9 @@ export const PositionsTable = memo(function PositionsTable({ positions, openOrde
                   </td>
                   <td className="py-3 pr-4 text-gray-400 text-sm">
                     {formatTimeSince(lastOrderTimeByMarket.get(position.market))}
+                  </td>
+                  <td className="py-3 pr-4 text-gray-400 text-sm">
+                    {formatTimeSince(lastPositionChangeByMarket.get(position.market))}
                   </td>
                 </tr>
               );

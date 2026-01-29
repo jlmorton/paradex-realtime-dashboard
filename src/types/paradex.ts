@@ -84,6 +84,7 @@ export interface DashboardState {
   positions: Position[];
   openOrders: Map<string, Order>; // market -> most recent open order on opposite side
   lastOrderTimeByMarket: Map<string, number>; // market -> timestamp of last order
+  lastPositionChangeByMarket: Map<string, number>; // market -> timestamp of last position update
 }
 
 export interface ParadexConfig {
