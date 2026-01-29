@@ -103,7 +103,7 @@ export const PositionsTable = memo(function PositionsTable({ positions, openOrde
               <th className="pb-3 pr-4">Size</th>
               <th className="pb-3 pr-4">Value</th>
               <th className="pb-3 pr-4">Entry Price</th>
-              <th className="pb-3 pr-4">Exit Order</th>
+              <th className="pb-3 pr-4 w-32">Exit Order</th>
               <th className="pb-3 pr-4">Liq. Price</th>
               <th className="pb-3 pr-4">Unrealized P&L</th>
               <th className="pb-3 pr-4">Realized P&L</th>
@@ -147,23 +147,25 @@ export const PositionsTable = memo(function PositionsTable({ positions, openOrde
                   <td className="py-3 pr-4 text-white">
                     ${formatPrice(position.average_entry_price)}
                   </td>
-                  <td className="py-3 pr-4">
-                    {exitOrder ? (
-                      <div className="flex items-center gap-1.5">
-                        <span className={exitOrder.side === 'BUY' ? 'text-paradex-green' : 'text-paradex-red'}>
-                          ${formatPrice(exitOrder.price)}
-                        </span>
-                        <span className={`text-[10px] px-1 py-0.5 rounded font-medium ${
-                          exitOrder.side === 'BUY'
-                            ? 'bg-paradex-green/20 text-paradex-green'
-                            : 'bg-paradex-red/20 text-paradex-red'
-                        }`}>
-                          {exitOrder.side[0]}{exitOrder.type[0]}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-gray-500">-</span>
-                    )}
+                  <td className="py-3 pr-4 w-32">
+                    <div className="flex items-center gap-1.5 h-5">
+                      {exitOrder ? (
+                        <>
+                          <span className={exitOrder.side === 'BUY' ? 'text-paradex-green' : 'text-paradex-red'}>
+                            ${formatPrice(exitOrder.price)}
+                          </span>
+                          <span className={`text-[10px] px-1 py-0.5 rounded font-medium ${
+                            exitOrder.side === 'BUY'
+                              ? 'bg-paradex-green/20 text-paradex-green'
+                              : 'bg-paradex-red/20 text-paradex-red'
+                          }`}>
+                            {exitOrder.side[0]}{exitOrder.type[0]}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-gray-500">-</span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-3 pr-4 text-white">
                     {position.liquidation_price && parseFloat(position.liquidation_price) > 0
@@ -190,6 +192,9 @@ export const PositionsTable = memo(function PositionsTable({ positions, openOrde
             })}
           </tbody>
         </table>
+      </div>
+      <div className="mt-3 pt-3 border-t border-paradex-border/50 text-[10px] text-gray-500">
+        <span className="text-paradex-green">BL</span> Buy Limit · <span className="text-paradex-red">SL</span> Sell Limit · <span className="text-paradex-green">BM</span> Buy Market · <span className="text-paradex-red">SM</span> Sell Market
       </div>
     </div>
   );
