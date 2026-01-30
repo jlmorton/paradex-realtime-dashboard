@@ -329,23 +329,22 @@ export function useDemoSimulation() {
       const baseEquity = 10000;
       const newEquity = baseEquity + totalPnL;
 
-      // Limit history arrays
-      const maxHistory = 200;
+      // Append to history arrays (no limit - keep full session history)
       const newPnlHistory = [
-        ...prev.pnlHistory.slice(-maxHistory + 1),
+        ...prev.pnlHistory,
         { time: now, value: totalPnL },
       ];
       const newEquityHistory = [
-        ...prev.equityHistory.slice(-maxHistory + 1),
+        ...prev.equityHistory,
         { time: now, value: newEquity },
       ];
       const newVolumeHistory = [
-        ...prev.volumeHistory.slice(-maxHistory),
+        ...prev.volumeHistory,
         ...newVolumePoints,
-      ].slice(-maxHistory);
+      ];
       // Update orders history with time buckets
       const bucketTime = Math.floor(now / ORDER_BUCKET_MS) * ORDER_BUCKET_MS;
-      let newOrdersHistory = [...prev.ordersHistory];
+      const newOrdersHistory = [...prev.ordersHistory];
 
       // Find or create the current bucket
       const lastBucket = newOrdersHistory[newOrdersHistory.length - 1];
@@ -361,9 +360,6 @@ export function useDemoSimulation() {
         newOrdersHistory.push({ time: bucketTime, counts: orderCounts });
       }
 
-      // Keep only last N buckets
-      newOrdersHistory = newOrdersHistory.slice(-maxHistory);
-
       return {
         ...prev,
         realizedPnL: newRealizedPnL,
@@ -376,7 +372,7 @@ export function useDemoSimulation() {
         volumeHistory: newVolumeHistory,
         ordersHistory: newOrdersHistory,
         equityHistory: newEquityHistory,
-        recentFills: [...newFills, ...prev.recentFills].slice(0, 50),
+        recentFills: [...newFills, ...prev.recentFills],
         positions: newPositions,
         openOrders: newOpenOrders,
         allOpenOrders: newAllOpenOrders,

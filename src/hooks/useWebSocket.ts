@@ -6,7 +6,6 @@ const REST_API_URL = 'https://api.prod.paradex.trade/v1';
 
 // Performance tuning
 const STATE_UPDATE_INTERVAL_MS = 100; // Batch state updates every 100ms
-const MAX_HISTORY_POINTS = 1000; // Limit chart data points
 const ORDER_BUCKET_MS = 5000; // 5 second buckets for orders chart
 const DEBUG = false; // Set to true to enable console logging
 
@@ -215,11 +214,10 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
         });
       }
 
-      // Limit history arrays to prevent unbounded growth
-      const limitArray = <T,>(arr: T[], newItems: T[], max: number): T[] => {
+      // Append to history arrays (no limit - keep full session history)
+      const appendArray = <T,>(arr: T[], newItems: T[]): T[] => {
         if (newItems.length === 0) return arr;
-        const combined = [...arr, ...newItems];
-        return combined.length > max ? combined.slice(-max) : combined;
+        return [...arr, ...newItems];
       };
 
       return {
@@ -231,11 +229,11 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
         equity: newEquity,
         unrealizedPnL: newUnrealizedPnL,
         recentFills: pending.fills.length > 0
-          ? [...pending.fills.reverse(), ...prev.recentFills].slice(0, 1000)
+          ? [...pending.fills.reverse(), ...prev.recentFills]
           : prev.recentFills,
-        pnlHistory: limitArray(prev.pnlHistory, pending.pnlPoints, MAX_HISTORY_POINTS),
-        volumeHistory: limitArray(prev.volumeHistory, pending.volumePoints, MAX_HISTORY_POINTS),
-        equityHistory: limitArray(prev.equityHistory, pending.equityPoints, MAX_HISTORY_POINTS),
+        pnlHistory: appendArray(prev.pnlHistory, pending.pnlPoints),
+        volumeHistory: appendArray(prev.volumeHistory, pending.volumePoints),
+        equityHistory: appendArray(prev.equityHistory, pending.equityPoints),
         ordersHistory: (() => {
           if (Object.keys(pending.orderCounts).length === 0) return prev.ordersHistory;
 
@@ -257,7 +255,7 @@ export function useWebSocket({ jwtToken, onStateUpdate }: UseWebSocketOptions) {
             history.push({ time: bucketTime, counts: pending.orderCounts });
           }
 
-          return history.slice(-MAX_HISTORY_POINTS);
+          return history;
         })(),
         positions: newPositions,
         openOrders: pending.ordersChanged ? new Map(openOrdersRef.current) : prev.openOrders,
